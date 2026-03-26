@@ -39,6 +39,7 @@ const MealSlot: React.FC<{
   isSelected: boolean,
   isActiveDay: boolean,
   isLocked?: boolean,
+  isCooked?: boolean,
   onClick?: () => void
 }> = ({ 
   day, 
@@ -47,6 +48,7 @@ const MealSlot: React.FC<{
   isSelected, 
   isActiveDay,
   isLocked = false,
+  isCooked = false,
   onClick 
 }) => {
   const recipe = recipeId ? RECIPES.find(r => r.id === recipeId) : null;
@@ -58,7 +60,7 @@ const MealSlot: React.FC<{
         isSelected ? 'ring-2 ring-orange-500 ring-offset-2' : ''
       } ${!isLocked ? 'cursor-pointer' : 'cursor-default'} ${
         !recipe && isActiveDay && !isLocked ? 'scale-105 shadow-md' : ''
-      } ${recipe && !isLocked ? 'hover:ring-2 hover:ring-red-200 hover:ring-offset-1' : ''}`}
+      } ${recipe && !isLocked ? 'hover:ring-2 hover:ring-red-200 hover:ring-offset-1' : ''} ${isCooked ? 'opacity-60' : ''}`}
     >
       <div className={`aspect-[4/3] rounded-2xl overflow-hidden border-2 border-dashed transition-all ${
         recipe ? 'border-transparent shadow-sm' : 
@@ -69,14 +71,20 @@ const MealSlot: React.FC<{
             <img src={recipe.image} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
             <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
             
+            {isCooked && (
+              <div className="absolute inset-0 bg-green-500/20 flex items-center justify-center">
+                <CheckCircle2 className="w-8 h-8 text-white drop-shadow-lg" />
+              </div>
+            )}
+
             {/* Hover Delete Overlay */}
-            {!isLocked && (
+            {!isLocked && !isCooked && (
               <div className="absolute inset-0 bg-red-500/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-[1px]">
                 <Trash2 className="w-6 h-6 text-white/90" />
               </div>
             )}
 
-            <div className={`absolute bottom-2 left-2 right-2 ${!isLocked ? 'group-hover:opacity-0' : ''} transition-opacity`}>
+            <div className={`absolute bottom-2 left-2 right-2 ${!isLocked && !isCooked ? 'group-hover:opacity-0' : ''} transition-opacity`}>
               <p className="text-[10px] font-bold text-white truncate">{recipe.name}</p>
             </div>
           </div>
@@ -130,6 +138,7 @@ export default function App() {
   const [isReselectingPool, setIsReselectingPool] = useState(false);
   const [hasReachedCalendarOnce, setHasReachedCalendarOnce] = useState(false);
   const [isShowingCalendarCTA, setIsShowingCalendarCTA] = useState(true);
+  const [cookedMeals, setCookedMeals] = useState<Set<string>>(new Set());
 
   const [weeklyPlan, setWeeklyPlan] = useState<WeeklyPlan>(() => {
     const plan: WeeklyPlan = {};
@@ -198,17 +207,25 @@ export default function App() {
   );
 
   const nextMeal = useMemo(() => {
-    // For demo purposes, we'll just pick the first planned meal found
-    for (const day of DAYS) {
+    const today = getCurrentDay();
+    const todayIdx = DAYS.indexOf(today);
+    
+    // Start from today and look forward
+    for (let i = 0; i < DAYS.length; i++) {
+      const dayIdx = (todayIdx + i) % DAYS.length;
+      const day = DAYS[dayIdx];
+      
       for (const time of MEALS) {
-        const recipeId = weeklyPlan[day][time];
-        if (recipeId) {
+        const recipeId = weeklyPlan[day]?.[time];
+        const isCooked = cookedMeals.has(`${day}-${time}`);
+        
+        if (recipeId && !isCooked) {
           return { day, time, recipe: RECIPES.find(r => r.id === recipeId) };
         }
       }
     }
     return null;
-  }, [weeklyPlan]);
+  }, [weeklyPlan, cookedMeals]);
 
   const filteredRecipes = useMemo(() => {
     let base = RECIPES;
@@ -288,6 +305,12 @@ export default function App() {
 
   const handleCook = () => {
     if (nextMeal?.recipe) {
+      const { day, time } = nextMeal;
+      setCookedMeals(prev => {
+        const next = new Set(prev);
+        next.add(`${day}-${time}`);
+        return next;
+      });
       setCookingMessage(`¡Buen provecho! Has cocinado ${nextMeal.recipe.name}.`);
       setTimeout(() => setCookingMessage(null), 3000);
     }
@@ -439,7 +462,9 @@ export default function App() {
                 <div className="bg-white rounded-[32px] p-6 shadow-xl shadow-orange-500/10 border border-orange-100 space-y-6">
                   <div className="flex items-center gap-2">
                     <span className="bg-orange-500 text-white text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest">Próxima Comida</span>
-                    <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{nextMeal.day} • {nextMeal.time}</span>
+                    <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                      {nextMeal.day === getCurrentDay() ? 'HOY' : nextMeal.day} • {nextMeal.time}
+                    </span>
                   </div>
                   
                   <div className="flex gap-6">
@@ -463,6 +488,31 @@ export default function App() {
                   >
                     Cocinando ahora
                     <ArrowRight className="w-5 h-5" />
+                  </button>
+                </div>
+              ) : hasPlan ? (
+                <div className="bg-white rounded-[40px] p-10 border-2 border-dashed border-green-200 text-center space-y-6 shadow-sm">
+                  <div className="w-20 h-20 bg-green-50 rounded-full flex items-center justify-center mx-auto">
+                    <CheckCircle2 className="w-10 h-10 text-green-400" />
+                  </div>
+                  <div className="space-y-2">
+                    <h3 className="text-xl font-black tracking-tight">¡Plan completado! 🥳</h3>
+                    <p className="text-sm text-gray-400 font-medium max-w-[200px] mx-auto">Has cocinado todas tus comidas de la semana.</p>
+                  </div>
+                  <button 
+                    onClick={() => {
+                      setWeeklyPlan(prev => {
+                        const empty: WeeklyPlan = {};
+                        DAYS.forEach(d => empty[d] = { Desayuno: null, Almuerzo: null, Cena: null });
+                        return empty;
+                      });
+                      setCookedMeals(new Set());
+                      setView('setup');
+                    }}
+                    className="inline-flex items-center gap-3 bg-green-500 text-white px-8 py-4 rounded-2xl font-black text-sm shadow-lg shadow-green-500/30 hover:scale-105 transition-transform active:scale-95"
+                  >
+                    Empezar nueva semana
+                    <ArrowRight className="w-4 h-4" />
                   </button>
                 </div>
               ) : (
@@ -757,6 +807,7 @@ export default function App() {
                                   isSelected={selectedSlot?.day === day && selectedSlot?.time === time}
                                   isActiveDay={activeDay === day}
                                   isLocked={isLocked}
+                                  isCooked={cookedMeals.has(`${day}-${time}`)}
                                   onClick={() => {
                                     if (isLocked) return;
                                     
