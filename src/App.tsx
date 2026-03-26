@@ -128,6 +128,8 @@ export default function App() {
   const [setupSelectedPool, setSetupSelectedPool] = useState<{id: string, category: string}[]>([]);
 
   const [isReselectingPool, setIsReselectingPool] = useState(false);
+  const [hasReachedCalendarOnce, setHasReachedCalendarOnce] = useState(false);
+  const [isShowingCalendarCTA, setIsShowingCalendarCTA] = useState(true);
 
   const [weeklyPlan, setWeeklyPlan] = useState<WeeklyPlan>(() => {
     const plan: WeeklyPlan = {};
@@ -340,7 +342,7 @@ export default function App() {
       <div className="flex min-h-[calc(100vh-64px)]">
         {/* Sidebar for Calendar View */}
         <AnimatePresence>
-          {view === 'calendar' && (!isPlanComplete || isEditingPlan || !hasFinalizedInitialPlan) && (
+          {view === 'calendar' && (!isPlanComplete || isEditingPlan || !hasFinalizedInitialPlan) && (!(!hasFinalizedInitialPlan && isShowingCalendarCTA)) && (
             <>
               {/* Mobile Overlay */}
               <motion.div
@@ -473,7 +475,10 @@ export default function App() {
                     <p className="text-sm text-gray-400 font-medium max-w-[200px] mx-auto">Organiza tu semana para ahorrar tiempo y dinero.</p>
                   </div>
                   <button 
-                    onClick={() => setView('setup')}
+                    onClick={() => {
+                      setView('setup');
+                      setIsShowingCalendarCTA(false);
+                    }}
                     className="inline-flex items-center gap-3 bg-orange-500 text-white px-8 py-4 rounded-2xl font-black text-sm shadow-lg shadow-orange-500/30 hover:scale-105 transition-transform active:scale-95"
                   >
                     Crear Plan Semanal
@@ -615,7 +620,11 @@ export default function App() {
                             } else {
                               if (setupStep === 'breakfast') setSetupStep('lunch');
                               else if (setupStep === 'lunch') setSetupStep('dinner');
-                              else setView('calendar');
+                              else {
+                                setView('calendar');
+                                setHasReachedCalendarOnce(true);
+                                setIsShowingCalendarCTA(false); // When moving from setup to calendar, don't show CTA
+                              }
                             }
                           }}
                           className="bg-orange-500 text-white px-6 py-3 rounded-2xl font-black text-xs flex items-center gap-2 shadow-lg shadow-orange-500/20 hover:scale-105 active:scale-95 transition-all"
@@ -639,100 +648,140 @@ export default function App() {
               exit={{ opacity: 0, x: -20 }}
               className="space-y-8"
             >
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div className="flex items-center gap-4">
-                  {(!isPlanComplete || isEditingPlan) && (
-                    <button 
-                      onClick={() => setIsSidebarOpen(true)}
-                      className="lg:hidden p-3 bg-white border border-gray-100 rounded-2xl shadow-sm text-orange-500"
-                    >
-                      <Plus className="w-5 h-5" />
-                    </button>
-                  )}
-                  <div className="space-y-1">
-                    <h2 className="text-3xl font-black tracking-tight">Tu Plan Semanal</h2>
-                    <p className="text-gray-500 text-sm">Organiza tus comidas y ahorra dinero</p>
+              {!hasFinalizedInitialPlan && isShowingCalendarCTA ? (
+                <div className="bg-white rounded-[40px] p-10 border-2 border-dashed border-gray-200 text-center space-y-6 shadow-sm">
+                  <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mx-auto">
+                    <CalendarIcon className="w-10 h-10 text-gray-300" />
                   </div>
-                </div>
-
-                {isPlanComplete && hasFinalizedInitialPlan && !isEditingPlan && (
+                  <div className="space-y-2">
+                    <h3 className="text-xl font-black tracking-tight">
+                      {setupSelectedPool.length === 0 ? 'No tienes plan para hoy' : 'Tienes un plan pendiente'}
+                    </h3>
+                    <p className="text-sm text-gray-400 font-medium max-w-[200px] mx-auto">
+                      {setupSelectedPool.length === 0 
+                        ? 'Organiza tu semana para ahorrar tiempo y dinero.' 
+                        : 'Continúa donde lo dejaste para terminar tu planificación.'}
+                    </p>
+                  </div>
                   <button 
                     onClick={() => {
-                      setIsEditingPlan(true);
-                      setActiveDay(getCurrentDay());
+                      if (setupSelectedPool.length === 0) {
+                        setView('setup');
+                        setSetupStep('breakfast');
+                        setIsShowingCalendarCTA(false);
+                      } else {
+                        if (hasReachedCalendarOnce) {
+                          setIsShowingCalendarCTA(false);
+                        } else {
+                          setView('setup');
+                          setIsShowingCalendarCTA(false);
+                        }
+                      }
                     }}
-                    className="flex items-center gap-2 bg-white border border-gray-200 px-6 py-3 rounded-2xl font-black text-sm hover:bg-gray-50 transition-all active:scale-95 shadow-sm"
+                    className="inline-flex items-center gap-3 bg-orange-500 text-white px-8 py-4 rounded-2xl font-black text-sm shadow-lg shadow-orange-500/30 hover:scale-105 transition-transform active:scale-95"
                   >
-                    <Edit3 className="w-4 h-4 text-orange-500" />
-                    Editar Plan
+                    {setupSelectedPool.length === 0 ? 'Crear Plan Semanal' : 'Continuar Planificación'}
+                    <ArrowRight className="w-4 h-4" />
                   </button>
-                )}
-              </div>
-
-              <div className="bg-white rounded-[40px] p-4 md:p-8 border border-gray-100 shadow-xl shadow-gray-200/50 overflow-x-auto no-scrollbar">
-                <div className="min-w-[800px]">
-                  <div className="grid grid-cols-8 gap-4 mb-6">
-                    <div />
-                    {DAYS.map(day => {
-                      const isToday = day === getCurrentDay();
-                      const isLocked = isPlanComplete && hasFinalizedInitialPlan && !isEditingPlan;
-                      
-                      return (
-                        <div 
-                          key={day} 
-                          onClick={() => !isLocked && setActiveDay(day)}
-                          className={`text-center py-2 rounded-xl transition-all ${!isLocked ? 'cursor-pointer' : 'cursor-default'} ${
-                            activeDay === day ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20' : 'bg-transparent text-gray-400'
-                          } ${isLocked && activeDay !== day ? 'opacity-30' : 'opacity-100'}`}
+                </div>
+              ) : (
+                <>
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div className="flex items-center gap-4">
+                      {(!isPlanComplete || isEditingPlan) && (
+                        <button 
+                          onClick={() => setIsSidebarOpen(true)}
+                          className="lg:hidden p-3 bg-white border border-gray-100 rounded-2xl shadow-sm text-orange-500"
                         >
-                          <span className="text-[10px] font-black uppercase tracking-widest">
-                            {isToday && isLocked ? 'Hoy' : day}
-                          </span>
-                        </div>
-                      );
-                    })}
+                          <Plus className="w-5 h-5" />
+                        </button>
+                      )}
+                      <div className="space-y-1">
+                        <h2 className="text-3xl font-black tracking-tight">Tu Plan Semanal</h2>
+                        <p className="text-gray-500 text-sm">Organiza tus comidas y ahorra dinero</p>
+                      </div>
+                    </div>
+
+                    {isPlanComplete && hasFinalizedInitialPlan && !isEditingPlan && (
+                      <button 
+                        onClick={() => {
+                          setIsEditingPlan(true);
+                          setActiveDay(getCurrentDay());
+                        }}
+                        className="flex items-center gap-2 bg-white border border-gray-200 px-6 py-3 rounded-2xl font-black text-sm hover:bg-gray-50 transition-all active:scale-95 shadow-sm"
+                      >
+                        <Edit3 className="w-4 h-4 text-orange-500" />
+                        Editar Plan
+                      </button>
+                    )}
                   </div>
 
-                  <div className="space-y-6">
-                    {MEALS.map(time => (
-                      <div key={time} className="grid grid-cols-8 gap-4 items-center">
-                        <div className="text-right pr-4">
-                          <span className="text-[10px] font-black text-gray-900 uppercase tracking-widest">{time}</span>
-                        </div>
+                  <div className="bg-white rounded-[40px] p-4 md:p-8 border border-gray-100 shadow-xl shadow-gray-200/50 overflow-x-auto no-scrollbar">
+                    <div className="min-w-[800px]">
+                      <div className="grid grid-cols-8 gap-4 mb-6">
+                        <div />
                         {DAYS.map(day => {
+                          const isToday = day === getCurrentDay();
                           const isLocked = isPlanComplete && hasFinalizedInitialPlan && !isEditingPlan;
+                          
                           return (
-                            <MealSlot
-                              key={`${day}-${time}`}
-                              day={day}
-                              time={time}
-                              recipeId={weeklyPlan[day]?.[time]}
-                              isSelected={selectedSlot?.day === day && selectedSlot?.time === time}
-                              isActiveDay={activeDay === day}
-                              isLocked={isLocked}
-                              onClick={() => {
-                                if (isLocked) return;
-                                
-                                if (weeklyPlan[day]?.[time]) {
-                                setWeeklyPlan(prev => ({
-                                  ...prev,
-                                  [day]: {
-                                    ...prev[day],
-                                    [time]: null
+                            <div 
+                              key={day} 
+                              onClick={() => !isLocked && setActiveDay(day)}
+                              className={`text-center py-2 rounded-xl transition-all ${!isLocked ? 'cursor-pointer' : 'cursor-default'} ${
+                                activeDay === day ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20' : 'bg-transparent text-gray-400'
+                              } ${isLocked && activeDay !== day ? 'opacity-30' : 'opacity-100'}`}
+                            >
+                              <span className="text-[10px] font-black uppercase tracking-widest">
+                                {isToday && isLocked ? 'Hoy' : day}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      <div className="space-y-6">
+                        {MEALS.map(time => (
+                          <div key={time} className="grid grid-cols-8 gap-4 items-center">
+                            <div className="text-right pr-4">
+                              <span className="text-[10px] font-black text-gray-900 uppercase tracking-widest">{time}</span>
+                            </div>
+                            {DAYS.map(day => {
+                              const isLocked = isPlanComplete && hasFinalizedInitialPlan && !isEditingPlan;
+                              return (
+                                <MealSlot
+                                  key={`${day}-${time}`}
+                                  day={day}
+                                  time={time}
+                                  recipeId={weeklyPlan[day]?.[time]}
+                                  isSelected={selectedSlot?.day === day && selectedSlot?.time === time}
+                                  isActiveDay={activeDay === day}
+                                  isLocked={isLocked}
+                                  onClick={() => {
+                                    if (isLocked) return;
+                                    
+                                    if (weeklyPlan[day]?.[time]) {
+                                    setWeeklyPlan(prev => ({
+                                      ...prev,
+                                      [day]: {
+                                        ...prev[day],
+                                        [time]: null
+                                      }
+                                    }));
+                                  } else {
+                                    setActiveDay(day);
                                   }
-                                }));
-                              } else {
-                                setActiveDay(day);
-                              }
-                            }}
-                          />
-                        );
-                      })}
+                                }}
+                              />
+                            );
+                          })}
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
-                </div>
-              </div>
+                    </div>
+                  </div>
+                </>
+              )}
             </motion.div>
           )}
 
@@ -920,7 +969,7 @@ export default function App() {
 
       {/* Finalize Planning Fixed Button */}
       <AnimatePresence>
-        {view === 'calendar' && isPlanComplete && (isEditingPlan || !hasFinalizedInitialPlan) && (
+        {view === 'calendar' && isPlanComplete && (isEditingPlan || (!hasFinalizedInitialPlan && !isShowingCalendarCTA)) && (
           <motion.div 
             initial={{ opacity: 0, y: 100 }}
             animate={{ opacity: 1, y: 0 }}
@@ -957,7 +1006,10 @@ export default function App() {
           <span className="text-[10px] font-bold uppercase tracking-widest">Inicio</span>
         </button>
         <button 
-          onClick={() => setView('calendar')}
+          onClick={() => {
+            setView('calendar');
+            setIsShowingCalendarCTA(true);
+          }}
           className={`flex flex-col items-center gap-1 transition-colors ${view === 'calendar' ? 'text-orange-500' : 'text-gray-400'}`}
         >
           <CalendarIcon className="w-6 h-6" />
