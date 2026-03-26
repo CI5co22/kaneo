@@ -1,0 +1,105 @@
+import { Recipe } from './types';
+
+export const RECIPES: Recipe[] = [
+  {
+    id: '1',
+    name: 'Pasta con Tomate y Albahaca',
+    description: 'Un clásico económico y rápido.',
+    category: 'Dinner',
+    image: 'https://picsum.photos/seed/pasta/400/300',
+    ingredients: [
+      { name: 'Pasta', amount: 250, unit: 'g', estimatedCost: 0.8 },
+      { name: 'Tomate triturado', amount: 400, unit: 'g', estimatedCost: 1.2 },
+      { name: 'Albahaca fresca', amount: 1, unit: 'manojo', estimatedCost: 1.0 },
+      { name: 'Ajo', amount: 2, unit: 'dientes', estimatedCost: 0.2 },
+    ],
+  },
+  {
+    id: '2',
+    name: 'Arroz con Pollo y Verduras',
+    description: 'Nutritivo y rinde para varias comidas.',
+    category: 'Lunch',
+    image: 'https://picsum.photos/seed/rice/400/300',
+    ingredients: [
+      { name: 'Arroz', amount: 300, unit: 'g', estimatedCost: 0.6 },
+      { name: 'Pechuga de pollo', amount: 400, unit: 'g', estimatedCost: 4.5 },
+      { name: 'Zanahoria', amount: 2, unit: 'unidades', estimatedCost: 0.4 },
+      { name: 'Guisantes', amount: 100, unit: 'g', estimatedCost: 0.5 },
+    ],
+  },
+  {
+    id: '3',
+    name: 'Tortilla de Patatas',
+    description: 'Solo 3 ingredientes básicos.',
+    category: 'Dinner',
+    image: 'https://picsum.photos/seed/tortilla/400/300',
+    ingredients: [
+      { name: 'Patatas', amount: 500, unit: 'g', estimatedCost: 0.7 },
+      { name: 'Huevos', amount: 6, unit: 'unidades', estimatedCost: 1.8 },
+      { name: 'Cebolla', amount: 1, unit: 'unidad', estimatedCost: 0.3 },
+    ],
+  },
+  {
+    id: '4',
+    name: 'Ensalada de Garbanzos',
+    description: 'Fresca, barata y llena de proteína.',
+    category: 'Lunch',
+    image: 'https://picsum.photos/seed/salad/400/300',
+    ingredients: [
+      { name: 'Garbanzos cocidos', amount: 400, unit: 'g', estimatedCost: 0.9 },
+      { name: 'Pepino', amount: 1, unit: 'unidad', estimatedCost: 0.6 },
+      { name: 'Tomate cherry', amount: 200, unit: 'g', estimatedCost: 1.5 },
+      { name: 'Cebolla roja', amount: 0.5, unit: 'unidad', estimatedCost: 0.2 },
+    ],
+  },
+  {
+    id: '6',
+    name: 'Lentejas con Arroz',
+    description: 'Proteína completa y súper económica.',
+    category: 'Lunch',
+    image: 'https://picsum.photos/seed/lentils/400/300',
+    ingredients: [
+      { name: 'Lentejas', amount: 200, unit: 'g', estimatedCost: 0.5 },
+      { name: 'Arroz', amount: 100, unit: 'g', estimatedCost: 0.2 },
+      { name: 'Cebolla', amount: 0.5, unit: 'unidad', estimatedCost: 0.2 },
+      { name: 'Pimentón', amount: 1, unit: 'cucharadita', estimatedCost: 0.1 },
+    ],
+  },
+  {
+    id: '7',
+    name: 'Sopa de Fideos',
+    description: 'Lo más barato para una cena ligera.',
+    category: 'Dinner',
+    image: 'https://picsum.photos/seed/soup/400/300',
+    ingredients: [
+      { name: 'Caldo de pollo', amount: 500, unit: 'ml', estimatedCost: 0.6 },
+      { name: 'Fideos finos', amount: 50, unit: 'g', estimatedCost: 0.2 },
+      { name: 'Huevo duro', amount: 1, unit: 'unidad', estimatedCost: 0.3 },
+    ],
+  },
+  {
+    id: '8',
+    name: 'Avena con Frutas',
+    description: 'Energía para toda la mañana.',
+    category: 'Breakfast',
+    image: 'https://picsum.photos/seed/oats/400/300',
+    ingredients: [
+      { name: 'Avena', amount: 50, unit: 'g', estimatedCost: 0.4 },
+      { name: 'Leche', amount: 200, unit: 'ml', estimatedCost: 0.5 },
+      { name: 'Plátano', amount: 1, unit: 'unidad', estimatedCost: 0.3 },
+      { name: 'Miel', amount: 1, unit: 'cucharada', estimatedCost: 0.2 },
+    ],
+  },
+  {
+    id: '9',
+    name: 'Tostadas con Huevo',
+    description: 'Proteína rápida y barata.',
+    category: 'Breakfast',
+    image: 'https://picsum.photos/seed/toast/400/300',
+    ingredients: [
+      { name: 'Pan de molde', amount: 2, unit: 'rebanadas', estimatedCost: 0.3 },
+      { name: 'Huevos', amount: 2, unit: 'unidades', estimatedCost: 0.6 },
+      { name: 'Aceite', amount: 1, unit: 'cucharada', estimatedCost: 0.1 },
+    ],
+  },
+];
