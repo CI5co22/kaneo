@@ -127,6 +127,8 @@ export default function App() {
   const [setupStep, setSetupStep] = useState<'breakfast' | 'lunch' | 'dinner'>('breakfast');
   const [setupSelectedPool, setSetupSelectedPool] = useState<{id: string, category: string}[]>([]);
 
+  const [isReselectingPool, setIsReselectingPool] = useState(false);
+
   const [weeklyPlan, setWeeklyPlan] = useState<WeeklyPlan>(() => {
     const plan: WeeklyPlan = {};
     DAYS.forEach(day => {
@@ -374,10 +376,23 @@ export default function App() {
 
                     return (
                       <div key={meal} className="space-y-3">
-                        <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-2">
-                          <div className="w-1 h-1 rounded-full bg-orange-500" />
-                          {meal}
-                        </h3>
+                        <div className="flex items-center justify-between">
+                          <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-2">
+                            <div className="w-1 h-1 rounded-full bg-orange-500" />
+                            {meal}
+                          </h3>
+                          <button 
+                            onClick={() => {
+                              const stepMap = { Desayuno: 'breakfast', Almuerzo: 'lunch', Cena: 'dinner' };
+                              setSetupStep(stepMap[meal] as any);
+                              setIsReselectingPool(true);
+                              setView('setup');
+                            }}
+                            className="text-[8px] font-black text-orange-500 uppercase tracking-widest hover:underline"
+                          >
+                            Elegir otras
+                          </button>
+                        </div>
                         <div className="grid gap-2">
                           {recipes.map(recipe => (
                             <SidebarRecipeItem 
@@ -483,9 +498,14 @@ export default function App() {
                     <div className="flex items-center gap-2">
                       <button 
                         onClick={() => {
-                          if (setupStep === 'breakfast') setView('dashboard');
-                          else if (setupStep === 'lunch') setSetupStep('breakfast');
-                          else setSetupStep('lunch');
+                          if (isReselectingPool) {
+                            setView('calendar');
+                            setIsReselectingPool(false);
+                          } else {
+                            if (setupStep === 'breakfast') setView('dashboard');
+                            else if (setupStep === 'lunch') setSetupStep('breakfast');
+                            else setSetupStep('lunch');
+                          }
                         }}
                         className="p-1 -ml-1 text-gray-400 hover:text-gray-600"
                       >
@@ -498,9 +518,11 @@ export default function App() {
                     </div>
                     <p className="text-gray-500 text-sm">Selecciona las opciones para tu semana.</p>
                   </div>
-                  <div className="text-right">
-                    <span className="text-[10px] font-black text-orange-500 uppercase tracking-widest">Paso {setupStep === 'breakfast' ? '1' : setupStep === 'lunch' ? '2' : '3'} de 3</span>
-                  </div>
+                  {!isReselectingPool && (
+                    <div className="text-right">
+                      <span className="text-[10px] font-black text-orange-500 uppercase tracking-widest">Paso {setupStep === 'breakfast' ? '1' : setupStep === 'lunch' ? '2' : '3'} de 3</span>
+                    </div>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 pb-32">
@@ -587,13 +609,18 @@ export default function App() {
                         </div>
                         <button 
                           onClick={() => {
-                            if (setupStep === 'breakfast') setSetupStep('lunch');
-                            else if (setupStep === 'lunch') setSetupStep('dinner');
-                            else setView('calendar');
+                            if (isReselectingPool) {
+                              setView('calendar');
+                              setIsReselectingPool(false);
+                            } else {
+                              if (setupStep === 'breakfast') setSetupStep('lunch');
+                              else if (setupStep === 'lunch') setSetupStep('dinner');
+                              else setView('calendar');
+                            }
                           }}
                           className="bg-orange-500 text-white px-6 py-3 rounded-2xl font-black text-xs flex items-center gap-2 shadow-lg shadow-orange-500/20 hover:scale-105 active:scale-95 transition-all"
                         >
-                          {setupStep === 'dinner' ? 'Finalizar' : 'Siguiente'}
+                          {isReselectingPool ? 'Guardar Cambios' : (setupStep === 'dinner' ? 'Finalizar' : 'Siguiente')}
                           <ArrowRight className="w-4 h-4" />
                         </button>
                       </div>
@@ -902,9 +929,13 @@ export default function App() {
           >
             <button 
               onClick={() => {
-                setIsEditingPlan(false);
-                setHasFinalizedInitialPlan(true);
-                setView('dashboard');
+                if (hasFinalizedInitialPlan) {
+                  setIsEditingPlan(false);
+                } else {
+                  setIsEditingPlan(false);
+                  setHasFinalizedInitialPlan(true);
+                  setView('dashboard');
+                }
               }}
               className="group pointer-events-auto flex items-center gap-3 bg-orange-500 text-white px-8 py-4 rounded-3xl font-black uppercase tracking-widest shadow-2xl shadow-orange-500/40 hover:bg-orange-600 transition-all active:scale-95"
             >
