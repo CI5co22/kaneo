@@ -12,6 +12,7 @@ export interface Recipe {
   ingredients: Ingredient[];
   category: 'Breakfast' | 'Lunch' | 'Dinner' | 'Snack';
   image: string;
+  instructions: string[];
 }
 
 export interface ShoppingItem extends Ingredient {

@@ -13,6 +13,12 @@ export const RECIPES: Recipe[] = [
       { name: 'Albahaca fresca', amount: 1, unit: 'manojo', estimatedCost: 1.0 },
       { name: 'Ajo', amount: 2, unit: 'dientes', estimatedCost: 0.2 },
     ],
+    instructions: [
+      'Cocer la pasta en agua con sal.',
+      'Sofreír el ajo en una sartén.',
+      'Añadir el tomate y cocinar 10 min.',
+      'Mezclar con la pasta y añadir albahaca.'
+    ]
   },
   {
     id: '2',
@@ -26,6 +32,12 @@ export const RECIPES: Recipe[] = [
       { name: 'Zanahoria', amount: 2, unit: 'unidades', estimatedCost: 0.4 },
       { name: 'Guisantes', amount: 100, unit: 'g', estimatedCost: 0.5 },
     ],
+    instructions: [
+      'Cortar el pollo y dorar en la olla.',
+      'Añadir las verduras picadas.',
+      'Echar el arroz y el doble de agua.',
+      'Cocinar hasta que el arroz esté listo.'
+    ]
   },
   {
     id: '3',
@@ -38,6 +50,12 @@ export const RECIPES: Recipe[] = [
       { name: 'Huevos', amount: 6, unit: 'unidades', estimatedCost: 1.8 },
       { name: 'Cebolla', amount: 1, unit: 'unidad', estimatedCost: 0.3 },
     ],
+    instructions: [
+      'Pelar y cortar las patatas y cebolla.',
+      'Freír en abundante aceite hasta que estén tiernas.',
+      'Batir los huevos y mezclar con las patatas.',
+      'Cuajar la tortilla en la sartén por ambos lados.'
+    ]
   },
   {
     id: '4',
@@ -51,6 +69,12 @@ export const RECIPES: Recipe[] = [
       { name: 'Tomate cherry', amount: 200, unit: 'g', estimatedCost: 1.5 },
       { name: 'Cebolla roja', amount: 0.5, unit: 'unidad', estimatedCost: 0.2 },
     ],
+    instructions: [
+      'Lavar los garbanzos.',
+      'Picar todas las verduras en trozos pequeños.',
+      'Mezclar todo en un bol.',
+      'Aliñar con aceite, vinagre y sal.'
+    ]
   },
   {
     id: '6',
@@ -64,6 +88,12 @@ export const RECIPES: Recipe[] = [
       { name: 'Cebolla', amount: 0.5, unit: 'unidad', estimatedCost: 0.2 },
       { name: 'Pimentón', amount: 1, unit: 'cucharadita', estimatedCost: 0.1 },
     ],
+    instructions: [
+      'Cocer las lentejas con agua y sal.',
+      'Añadir el arroz a mitad de cocción.',
+      'Hacer un sofrito de cebolla y pimentón.',
+      'Mezclar todo y servir.'
+    ]
   },
   {
     id: '7',
@@ -76,6 +106,12 @@ export const RECIPES: Recipe[] = [
       { name: 'Fideos finos', amount: 50, unit: 'g', estimatedCost: 0.2 },
       { name: 'Huevo duro', amount: 1, unit: 'unidad', estimatedCost: 0.3 },
     ],
+    instructions: [
+      'Calentar el caldo hasta que hierva.',
+      'Añadir los fideos y cocinar 3 min.',
+      'Picar el huevo duro.',
+      'Servir la sopa con el huevo por encima.'
+    ]
   },
   {
     id: '8',
@@ -89,6 +125,12 @@ export const RECIPES: Recipe[] = [
       { name: 'Plátano', amount: 1, unit: 'unidad', estimatedCost: 0.3 },
       { name: 'Miel', amount: 1, unit: 'cucharada', estimatedCost: 0.2 },
     ],
+    instructions: [
+      'Calentar la leche con la avena.',
+      'Remover hasta que espese.',
+      'Cortar el plátano en rodajas.',
+      'Servir con el plátano y un chorrito de miel.'
+    ]
   },
   {
     id: '9',
@@ -101,5 +143,11 @@ export const RECIPES: Recipe[] = [
       { name: 'Huevos', amount: 2, unit: 'unidades', estimatedCost: 0.6 },
       { name: 'Aceite', amount: 1, unit: 'cucharada', estimatedCost: 0.1 },
     ],
+    instructions: [
+      'Tostar el pan.',
+      'Hacer los huevos a la plancha o revueltos.',
+      'Poner los huevos sobre las tostadas.',
+      'Salpimentar al gusto.'
+    ]
   },
 ];
