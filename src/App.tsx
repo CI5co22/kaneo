@@ -652,7 +652,7 @@ export default function App() {
         </AnimatePresence>
 
         <main className={`flex-1 flex flex-col transition-all duration-300 ${view === 'calendar' ? (isPlanComplete && hasFinalizedInitialPlan && !isEditingPlan ? 'max-w-5xl mx-auto' : 'max-w-none') : (view === 'recipe-details' || view === 'planner' || view === 'dashboard' || view === 'setup' ? 'max-w-7xl mx-auto' : 'max-w-2xl md:max-w-4xl mx-auto')} h-full overflow-hidden`}>
-          <div className="flex-1 overflow-y-auto no-scrollbar px-3 py-3 sm:px-6 sm:py-8 lg:px-12 lg:py-16 pb-20 lg:pb-16">
+          <div className="flex-1 overflow-y-auto no-scrollbar px-3 py-3 sm:px-6 sm:py-6 lg:px-8 lg:py-10 pb-20 lg:pb-16">
             <AnimatePresence mode="wait">
           {view === 'dashboard' && (
             <motion.div
@@ -1431,7 +1431,7 @@ export default function App() {
                     </div>
                   </div>
 
-                  <div className="bg-white rounded-[30px] sm:rounded-[40px] p-4 sm:p-8 border border-gray-100 shadow-xl shadow-gray-200/50 overflow-x-auto no-scrollbar">
+                  <div className="bg-white rounded-[30px] sm:rounded-[40px] p-4 sm:p-6 lg:p-8 border border-gray-100 shadow-xl shadow-gray-200/50 overflow-x-auto lg:overflow-x-visible no-scrollbar">
                     {/* Calendar Mobile View: Vertical List for Active Day */}
                     <div className="sm:hidden space-y-4">
                       {MEALS.map(time => {
@@ -1470,8 +1470,8 @@ export default function App() {
                     </div>
 
                     {/* Calendar Desktop View: 8-column Grid */}
-                    <div className="hidden sm:block min-w-[800px]">
-                      <div className="grid grid-cols-8 gap-4 mb-6">
+                    <div className="hidden sm:block">
+                      <div className="grid grid-cols-8 gap-2 sm:gap-3 mb-6">
                         <div />
                         {DAYS.map(day => {
                           const isToday = day === getCurrentDay();
@@ -1493,9 +1493,9 @@ export default function App() {
                         })}
                       </div>
 
-                      <div className="min-w-[600px] space-y-4 sm:space-y-6">
+                      <div className="space-y-3 sm:space-y-4">
                         {MEALS.map(time => (
-                          <div key={time} className="grid grid-cols-8 gap-2 sm:gap-4 items-center">
+                          <div key={time} className="grid grid-cols-8 gap-2 sm:gap-3 items-center">
                             <div className="text-right pr-2 sm:pr-4">
                               <span className="text-[8px] sm:text-[10px] font-black text-gray-900 uppercase tracking-widest">{time}</span>
                             </div>
