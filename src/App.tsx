@@ -117,23 +117,41 @@ const SetupPoolItem: React.FC<{ id: string, recipe: Recipe, onRemove: () => void
   );
 }
 
-const SidebarRecipeItem: React.FC<{ recipe: Recipe, onClick: () => void }> = ({ recipe, onClick }) => {
+const SidebarRecipeItem: React.FC<{ 
+  recipe: Recipe, 
+  onClick: () => void,
+  onInfoClick?: () => void 
+}> = ({ recipe, onClick, onInfoClick }) => {
   return (
-    <button 
-      onClick={onClick}
-      className="w-full flex items-center gap-3 p-3 rounded-2xl bg-gray-50 border border-gray-100 hover:bg-white hover:border-orange-200 hover:shadow-md transition-all group"
-    >
-      <img 
-        src={recipe.image} 
-        className="w-12 h-12 rounded-xl object-cover shadow-sm group-hover:scale-105 transition-transform" 
-        referrerPolicy="no-referrer" 
-      />
-      <div className="flex-1 text-left">
-        <h4 className="text-xs font-black tracking-tight text-gray-900 line-clamp-1">{recipe.name}</h4>
-        <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">{recipe.category}</p>
-      </div>
-      <Plus className="w-4 h-4 text-gray-300 group-hover:text-orange-500" />
-    </button>
+    <div className="group relative">
+      <button 
+        onClick={onClick}
+        className="w-full flex items-center gap-3 p-3 rounded-2xl bg-gray-50 border border-gray-100 hover:bg-white hover:border-orange-200 hover:shadow-md transition-all pr-12"
+      >
+        <img 
+          src={recipe.image} 
+          className="w-12 h-12 rounded-xl object-cover shadow-sm group-hover:scale-105 transition-transform" 
+          referrerPolicy="no-referrer" 
+        />
+        <div className="flex-1 text-left">
+          <h4 className="text-xs font-black tracking-tight text-gray-900 line-clamp-1">{recipe.name}</h4>
+          <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">{recipe.category}</p>
+        </div>
+        <Plus className="w-4 h-4 text-gray-300 group-hover:text-orange-500" />
+      </button>
+      
+      {onInfoClick && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onInfoClick();
+          }}
+          className="absolute right-3 top-1/2 -translate-y-1/2 p-2 text-gray-300 hover:text-orange-500 hover:bg-orange-50 rounded-xl transition-all opacity-0 group-hover:opacity-100"
+        >
+          <Search className="w-4 h-4" />
+        </button>
+      )}
+    </div>
   );
 };
 
@@ -197,6 +215,7 @@ export default function App() {
   const [setupStep, setSetupStep] = useState<'breakfast' | 'lunch' | 'dinner'>('breakfast');
   const [setupSelectedPool, setSetupSelectedPool] = useState<{id: string, category: string}[]>([]);
   const [selectedRecipeForDetails, setSelectedRecipeForDetails] = useState<Recipe | null>(null);
+  const [selectedRecipeForModal, setSelectedRecipeForModal] = useState<Recipe | null>(null);
 
   const [isReselectingPool, setIsReselectingPool] = useState(false);
   const [hasReachedCalendarOnce, setHasReachedCalendarOnce] = useState(false);
@@ -552,6 +571,7 @@ export default function App() {
                               key={recipe.id} 
                               recipe={recipe} 
                               onClick={() => handleSidebarRecipeClick(recipe)}
+                              onInfoClick={() => setSelectedRecipeForModal(recipe)}
                             />
                           ))}
                           {recipes.length === 0 && (
@@ -1031,12 +1051,14 @@ export default function App() {
                                 <motion.div 
                                   key={recipe.id}
                                   whileHover={{ scale: 1.05, zIndex: 10 }}
-                                  onClick={() => handleSelectRecipe(recipe.id)}
-                                  className="flex-shrink-0 w-[200px] group cursor-pointer"
+                                  className="flex-shrink-0 w-[200px] group cursor-pointer relative"
                                 >
-                                  <div className={`relative aspect-[3/4] rounded-[20px] overflow-hidden shadow-lg transition-all duration-300 group-hover:shadow-2xl ${
-                                    isSelected ? 'ring-4 ring-orange-500 ring-offset-4 ring-offset-gray-50' : ''
-                                  }`}>
+                                  <div 
+                                    onClick={() => handleSelectRecipe(recipe.id)}
+                                    className={`relative aspect-[3/4] rounded-[20px] overflow-hidden shadow-lg transition-all duration-300 group-hover:shadow-2xl ${
+                                      isSelected ? 'ring-4 ring-orange-500 ring-offset-4 ring-offset-gray-50' : ''
+                                    }`}
+                                  >
                                     <img 
                                       src={recipe.image} 
                                       className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" 
@@ -1076,6 +1098,16 @@ export default function App() {
                                       </div>
                                     </div>
                                   </div>
+
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setSelectedRecipeForModal(recipe);
+                                    }}
+                                    className="absolute top-3 right-3 z-20 p-2 bg-white/20 backdrop-blur-md rounded-xl text-white hover:bg-white hover:text-orange-500 transition-all opacity-0 group-hover:opacity-100"
+                                  >
+                                    <Search className="w-4 h-4" />
+                                  </button>
                                 </motion.div>
                               );
                             })}
@@ -1574,17 +1606,19 @@ export default function App() {
                                 <motion.div 
                                   key={recipe.id}
                                   whileHover={{ scale: 1.05, zIndex: 10 }}
-                                  onClick={() => {
-                                    if (selectedSlot) {
-                                      handleSelectRecipe(recipe.id);
-                                    } else {
-                                      setSelectedRecipeForDetails(recipe);
-                                      navigateTo('recipe-details');
-                                    }
-                                  }}
-                                  className="flex-shrink-0 w-[120px] sm:w-[200px] group cursor-pointer"
+                                  className="flex-shrink-0 w-[120px] sm:w-[200px] group cursor-pointer relative"
                                 >
-                                  <div className="relative aspect-[3/4] rounded-[12px] sm:rounded-[20px] overflow-hidden shadow-lg transition-all duration-300 group-hover:shadow-2xl">
+                                  <div 
+                                    onClick={() => {
+                                      if (selectedSlot) {
+                                        handleSelectRecipe(recipe.id);
+                                      } else {
+                                        setSelectedRecipeForDetails(recipe);
+                                        navigateTo('recipe-details');
+                                      }
+                                    }}
+                                    className="relative aspect-[3/4] rounded-[12px] sm:rounded-[20px] overflow-hidden shadow-lg transition-all duration-300 group-hover:shadow-2xl"
+                                  >
                                     <img 
                                       src={recipe.image} 
                                       className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" 
@@ -1618,6 +1652,16 @@ export default function App() {
                                       </div>
                                     </div>
                                   </div>
+
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setSelectedRecipeForModal(recipe);
+                                    }}
+                                    className="absolute top-2 right-2 sm:top-3 sm:right-3 z-20 p-1.5 sm:p-2 bg-white/20 backdrop-blur-md rounded-lg sm:rounded-xl text-white hover:bg-white hover:text-orange-500 transition-all opacity-0 group-hover:opacity-100"
+                                  >
+                                    <Search className="w-3 h-3 sm:w-4 sm:h-4" />
+                                  </button>
                                 </motion.div>
                               );
                             })}
@@ -1861,6 +1905,143 @@ export default function App() {
           <span className="text-[8px] font-black uppercase tracking-widest">Despensa</span>
         </button>
       </nav>
+
+      {/* Recipe Details Modal */}
+      <AnimatePresence>
+        {selectedRecipeForModal && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setSelectedRecipeForModal(null)}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="relative w-full max-w-4xl bg-white rounded-[32px] overflow-hidden shadow-2xl flex flex-col max-h-[90vh]"
+            >
+              <button 
+                onClick={() => setSelectedRecipeForModal(null)}
+                className="absolute top-4 right-4 z-10 p-2 bg-white/80 backdrop-blur-md rounded-full text-gray-500 hover:text-orange-500 transition-colors shadow-lg"
+              >
+                <X className="w-5 h-5" />
+              </button>
+
+              <div className="overflow-y-auto no-scrollbar p-6 sm:p-10 space-y-8">
+                <div className="grid md:grid-cols-2 gap-8">
+                  <div className="space-y-6">
+                    <div className="relative aspect-video sm:aspect-square rounded-[24px] overflow-hidden shadow-xl">
+                      <img 
+                        src={selectedRecipeForModal.image} 
+                        className="w-full h-full object-cover" 
+                        referrerPolicy="no-referrer"
+                      />
+                      <div className="absolute bottom-4 left-4 flex gap-2">
+                        <span className="bg-white/90 backdrop-blur-md text-orange-600 text-[10px] font-black px-3 py-1.5 rounded-full uppercase tracking-widest shadow-lg">
+                          {selectedRecipeForModal.category}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="bg-orange-50 rounded-2xl p-4 flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-sm">
+                          <Wallet className="w-5 h-5 text-orange-500" />
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-black text-orange-400 uppercase tracking-widest">Costo Estimado</p>
+                          <p className="text-lg font-black text-orange-600">
+                            ${selectedRecipeForModal.ingredients.reduce((s, i) => s + i.estimatedCost, 0).toFixed(2)}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-sm">
+                          <Clock className="w-5 h-5 text-orange-500" />
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-black text-orange-400 uppercase tracking-widest">Tiempo</p>
+                          <p className="text-lg font-black text-orange-600">25 min</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-6">
+                    <h2 className="text-2xl sm:text-4xl font-black tracking-tight leading-tight">
+                      {selectedRecipeForModal.name}
+                    </h2>
+                    
+                    <div className="space-y-4">
+                      <h3 className="text-xs font-black uppercase tracking-widest text-gray-400 flex items-center gap-2">
+                        <ShoppingCart className="w-4 h-4" />
+                        Ingredientes
+                      </h3>
+                      <div className="grid grid-cols-1 gap-2">
+                        {selectedRecipeForModal.ingredients.map((ing, idx) => (
+                          <div key={idx} className="flex items-center justify-between p-3 bg-gray-50 rounded-xl border border-gray-100/50">
+                            <span className="text-sm font-bold text-gray-600">{ing.name}</span>
+                            <span className="text-[10px] font-black text-orange-500 bg-orange-50 px-2 py-1 rounded-lg uppercase">
+                              {ing.amount} {ing.unit}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <h3 className="text-xs font-black uppercase tracking-widest text-gray-400 flex items-center gap-2">
+                    <ChefHat className="w-4 h-4" />
+                    Pasos de Preparación
+                  </h3>
+                  <div className="space-y-4">
+                    {selectedRecipeForModal.instructions.map((step, idx) => (
+                      <div key={idx} className="flex gap-4">
+                        <div className="flex-shrink-0 w-8 h-8 bg-orange-500 text-white rounded-lg flex items-center justify-center text-xs font-black shadow-lg shadow-orange-500/20">
+                          {idx + 1}
+                        </div>
+                        <p className="text-gray-600 font-medium text-sm leading-relaxed pt-1">
+                          {step}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex gap-3 pt-4">
+                  <button 
+                    onClick={() => setSelectedRecipeForModal(null)}
+                    className="flex-1 py-4 rounded-2xl font-black text-sm text-gray-500 bg-gray-100 hover:bg-gray-200 transition-all active:scale-95"
+                  >
+                    Cerrar
+                  </button>
+                  <button 
+                    onClick={() => {
+                      if (view === 'setup') {
+                        handleSelectRecipe(selectedRecipeForModal.id);
+                      } else if (selectedSlot) {
+                        handleSelectRecipe(selectedRecipeForModal.id);
+                      } else {
+                        handleSidebarRecipeClick(selectedRecipeForModal);
+                      }
+                      setSelectedRecipeForModal(null);
+                    }}
+                    className="flex-[2] py-4 rounded-2xl font-black text-sm text-white bg-orange-500 shadow-xl shadow-orange-500/20 hover:bg-orange-600 transition-all active:scale-95 flex items-center justify-center gap-2"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Agregar a mi plan
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   </div>
 );
