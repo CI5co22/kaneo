@@ -119,18 +119,37 @@ const SetupPoolItem: React.FC<{ id: string, recipe: Recipe, onRemove: () => void
 
 const SidebarRecipeItem: React.FC<{ recipe: Recipe, onClick: () => void }> = ({ recipe, onClick }) => {
   return (
-    <div
+    <button 
       onClick={onClick}
-      className="bg-white rounded-xl p-2 border border-gray-100 flex items-center gap-3 shadow-sm cursor-pointer hover:border-orange-200 transition-all active:scale-95"
+      className="w-full flex items-center gap-3 p-3 rounded-2xl bg-gray-50 border border-gray-100 hover:bg-white hover:border-orange-200 hover:shadow-md transition-all group"
     >
-      <img src={recipe.image} className="w-10 h-10 rounded-lg object-cover" referrerPolicy="no-referrer" />
-      <div className="flex-1 min-w-0">
-        <p className="text-[10px] font-bold truncate">{recipe.name}</p>
-        <p className="text-[8px] text-gray-400 uppercase font-black tracking-widest">{recipe.category}</p>
+      <img 
+        src={recipe.image} 
+        className="w-12 h-12 rounded-xl object-cover shadow-sm group-hover:scale-105 transition-transform" 
+        referrerPolicy="no-referrer" 
+      />
+      <div className="flex-1 text-left">
+        <h4 className="text-xs font-black tracking-tight text-gray-900 line-clamp-1">{recipe.name}</h4>
+        <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">{recipe.category}</p>
       </div>
-    </div>
+      <Plus className="w-4 h-4 text-gray-300 group-hover:text-orange-500" />
+    </button>
   );
-}
+};
+
+const SidebarNavItem: React.FC<{ icon: any, label: string, active: boolean, onClick: () => void }> = ({ icon: Icon, label, active, onClick }) => (
+  <button 
+    onClick={onClick}
+    className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl font-black text-sm transition-all duration-300 group ${
+      active 
+        ? 'bg-orange-500 text-white shadow-xl shadow-orange-500/20' 
+        : 'text-gray-400 hover:bg-gray-50 hover:text-gray-900'
+    }`}
+  >
+    <Icon className={`w-5 h-5 transition-transform group-hover:scale-110 ${active ? 'text-white' : 'text-gray-400 group-hover:text-orange-500'}`} />
+    <span className="tracking-tight">{label}</span>
+  </button>
+);
 
 export default function App() {
   const [view, setView] = useState<'dashboard' | 'calendar' | 'planner' | 'inventory' | 'setup' | 'recipe-details'>('dashboard');
@@ -287,11 +306,17 @@ export default function App() {
       base = base.filter(r => favorites.has(r.id));
     }
 
+    if (searchQuery.toLowerCase() === 'guardados') {
+      base = base.filter(r => wishlist.has(r.id));
+    }
+
     return base.filter(recipe => {
       const matchesSearch = recipe.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                           recipe.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
                           recipe.ingredients.some(i => i.name.toLowerCase().includes(searchQuery.toLowerCase()));
-      return matchesSearch || (searchQuery.toLowerCase() === 'favoritos' && favorites.has(recipe.id));
+      return matchesSearch || 
+             (searchQuery.toLowerCase() === 'favoritos' && favorites.has(recipe.id)) ||
+             (searchQuery.toLowerCase() === 'guardados' && wishlist.has(recipe.id));
     }).sort((a, b) => {
       const aMatches = a.ingredients.filter(i => inventory.has(i.name.toLowerCase())).length;
       const bMatches = b.ingredients.filter(i => inventory.has(i.name.toLowerCase())).length;
@@ -377,8 +402,62 @@ export default function App() {
   }, [view, isPlanComplete, hasFinalizedInitialPlan, isEditingPlan]);
 
   return (
-    <div className="min-h-screen bg-[#F8F9FA] text-[#1A1C1E] font-sans pb-24">
-      {/* Cooking Feedback Overlay */}
+    <div className="min-h-screen bg-[#F8F9FA] text-[#1A1C1E] font-sans pb-24 lg:pb-0 lg:flex">
+      {/* Desktop Sidebar */}
+      <aside className="hidden lg:flex flex-col w-72 bg-white border-r border-gray-100 sticky top-0 h-screen p-8 space-y-10 z-30">
+        {/* Branding */}
+        <div className="flex items-center gap-3 px-2">
+          <div className="w-10 h-10 bg-orange-500 rounded-2xl flex items-center justify-center shadow-lg shadow-orange-500/20">
+            <ChefHat className="w-6 h-6 text-white" />
+          </div>
+          <span className="font-black text-xl tracking-tighter">StudentPlan</span>
+        </div>
+
+        {/* Navigation */}
+        <nav className="flex-1 space-y-2">
+          <SidebarNavItem 
+            icon={Home} 
+            label="Inicio" 
+            active={view === 'dashboard'} 
+            onClick={() => setView('dashboard')} 
+          />
+          <SidebarNavItem 
+            icon={CalendarIcon} 
+            label="Mi Plan Semanal" 
+            active={view === 'calendar'} 
+            onClick={() => { setView('calendar'); setIsShowingCalendarCTA(true); }} 
+          />
+          <SidebarNavItem 
+            icon={Utensils} 
+            label="Explorar Recetas" 
+            active={view === 'planner'} 
+            onClick={() => setView('planner')} 
+          />
+          <SidebarNavItem 
+            icon={Package} 
+            label="Mi Despensa" 
+            active={view === 'inventory'} 
+            onClick={() => setView('inventory')} 
+          />
+        </nav>
+
+        {/* Wallet Info */}
+        <div className="bg-gray-50 rounded-[32px] p-6 border border-gray-100 space-y-4">
+          <div className="flex items-center gap-2 text-gray-400 text-[10px] font-black uppercase tracking-widest">
+            <Wallet className="w-4 h-4" />
+            Costo Estimado
+          </div>
+          <div className="text-3xl font-black tracking-tight text-gray-900">
+            ${totalCost.toFixed(2)}
+          </div>
+          <p className="text-[10px] text-gray-400 font-bold leading-tight">
+            Basado en los ingredientes que te faltan comprar.
+          </p>
+        </div>
+      </aside>
+
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* Cooking Feedback Overlay */}
       <AnimatePresence>
         {cookingMessage && (
           <motion.div 
@@ -397,7 +476,7 @@ export default function App() {
       </AnimatePresence>
 
       {/* Top Bar */}
-      <header className="bg-white border-b border-gray-100 sticky top-0 z-20 px-6 py-4 flex items-center justify-between">
+      <header className="bg-white border-b border-gray-100 sticky top-0 z-20 px-6 py-4 flex items-center justify-between lg:hidden">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 bg-orange-500 rounded-xl flex items-center justify-center">
             <ChefHat className="w-5 h-5 text-white" />
@@ -411,7 +490,7 @@ export default function App() {
       </header>
 
       {/* Main Content */}
-      <div className="flex min-h-[calc(100vh-64px)]">
+      <div className="flex min-h-[calc(100vh-64px)] lg:min-h-screen">
         {/* Sidebar for Calendar View */}
         <AnimatePresence>
           {view === 'calendar' && (!isPlanComplete || isEditingPlan || !hasFinalizedInitialPlan) && (!(!hasFinalizedInitialPlan && isShowingCalendarCTA)) && (
@@ -429,7 +508,7 @@ export default function App() {
                 initial={{ x: -320, opacity: 0 }}
                 animate={{ x: isSidebarOpen || window.innerWidth >= 1024 ? 0 : -320, opacity: 1 }}
                 exit={{ x: -320, opacity: 0 }}
-                className={`w-80 bg-white border-r border-gray-100 fixed lg:sticky top-0 lg:top-16 h-screen lg:h-[calc(100vh-64px)] overflow-y-auto no-scrollbar p-6 space-y-8 z-50 lg:z-10 transition-transform duration-300 lg:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}
+                className={`w-80 bg-white border-r border-gray-100 fixed lg:sticky top-0 h-screen overflow-y-auto no-scrollbar p-6 space-y-8 z-50 lg:z-10 transition-transform duration-300 lg:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}
               >
                 <div className="flex items-center justify-between lg:block">
                   <div className="space-y-2">
@@ -490,7 +569,7 @@ export default function App() {
           )}
         </AnimatePresence>
 
-        <main className={`flex-1 transition-all duration-300 ${view === 'calendar' ? (isPlanComplete && hasFinalizedInitialPlan && !isEditingPlan ? 'max-w-5xl mx-auto' : 'max-w-none') : (view === 'recipe-details' || view === 'planner' ? 'max-w-7xl mx-auto' : 'max-w-2xl mx-auto')} px-6 py-8`}>
+        <main className={`flex-1 transition-all duration-300 ${view === 'calendar' ? (isPlanComplete && hasFinalizedInitialPlan && !isEditingPlan ? 'max-w-5xl mx-auto' : 'max-w-none') : (view === 'recipe-details' || view === 'planner' || view === 'dashboard' || view === 'setup' ? 'max-w-7xl mx-auto' : 'max-w-2xl md:max-w-4xl mx-auto')} px-6 py-8 lg:px-12 lg:py-16`}>
           <AnimatePresence mode="wait">
           {view === 'dashboard' && (
             <motion.div
@@ -787,75 +866,279 @@ export default function App() {
               exit={{ opacity: 0, scale: 0.95 }}
               className="space-y-8"
             >
-              <div className="space-y-6">
-                <div className="flex items-center justify-between">
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <button 
-                        onClick={() => {
-                          if (isReselectingPool) {
-                            setView('calendar');
-                            setIsReselectingPool(false);
-                          } else {
-                            if (setupStep === 'breakfast') setView('dashboard');
-                            else if (setupStep === 'lunch') setSetupStep('breakfast');
-                            else setSetupStep('lunch');
-                          }
-                        }}
-                        className="p-1 -ml-1 text-gray-400 hover:text-gray-600"
-                      >
-                        <ArrowRight className="w-4 h-4 rotate-180" />
-                      </button>
-                      <h2 className="text-2xl font-black tracking-tight">
-                        {setupStep === 'breakfast' ? '¿Qué desayunarás?' : 
-                         setupStep === 'lunch' ? '¿Qué almorzarás?' : '¿Qué cenarás?'}
-                      </h2>
-                    </div>
-                    <p className="text-gray-500 text-sm">Selecciona las opciones para tu semana.</p>
+              {/* Header with Search */}
+              <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+                <div className="space-y-2">
+                  <div className="flex items-center gap-3">
+                    <button 
+                      onClick={() => {
+                        if (isReselectingPool) {
+                          setView('calendar');
+                          setIsReselectingPool(false);
+                        } else {
+                          if (setupStep === 'breakfast') setView('dashboard');
+                          else if (setupStep === 'lunch') setSetupStep('breakfast');
+                          else setSetupStep('lunch');
+                        }
+                      }}
+                      className="p-1 -ml-1 text-gray-400 hover:text-gray-600"
+                    >
+                      <ArrowRight className="w-4 h-4 rotate-180" />
+                    </button>
+                    <h2 className="text-4xl font-black tracking-tighter leading-none">
+                      {setupStep === 'breakfast' ? '¿Qué desayunarás?' : 
+                       setupStep === 'lunch' ? '¿Qué almorzarás?' : '¿Qué cenarás?'}
+                    </h2>
                   </div>
-                  {!isReselectingPool && (
-                    <div className="text-right">
-                      <span className="text-[10px] font-black text-orange-500 uppercase tracking-widest">Paso {setupStep === 'breakfast' ? '1' : setupStep === 'lunch' ? '2' : '3'} de 3</span>
-                    </div>
-                  )}
+                  <div className="flex items-center justify-between">
+                    <p className="text-gray-500 text-sm">Selecciona las opciones para tu semana.</p>
+                    {!isReselectingPool && (
+                      <span className="text-[10px] font-black text-orange-500 uppercase tracking-widest ml-4">Paso {setupStep === 'breakfast' ? '1' : setupStep === 'lunch' ? '2' : '3'} de 3</span>
+                    )}
+                  </div>
                 </div>
 
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 pb-32">
-                  {filteredRecipes.map(recipe => {
-                    const isSelected = setupSelectedPool.some(item => item.id === recipe.id);
-                    return (
-                      <button
-                        key={recipe.id}
-                        onClick={() => handleSelectRecipe(recipe.id)}
-                        className={`bg-white rounded-3xl overflow-hidden border transition-all flex flex-col group ${
-                          isSelected ? 'border-orange-500 ring-4 ring-orange-500/10' : 'border-gray-100 hover:border-orange-200'
-                        }`}
+                <div className="flex flex-col sm:flex-row gap-3 flex-1 max-w-xl">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <input 
+                      type="text"
+                      placeholder="Busca por ingrediente o nombre..."
+                      className="w-full bg-white border border-gray-200 rounded-2xl py-3.5 pl-12 pr-4 text-sm focus:outline-none focus:ring-4 focus:ring-orange-500/10 shadow-sm transition-all"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Quick Filters */}
+              <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2">
+                <button 
+                  onClick={() => setSearchQuery('')}
+                  className={`flex-shrink-0 px-6 py-2.5 rounded-full text-xs font-black uppercase tracking-widest border transition-all ${
+                    searchQuery === '' ? 'bg-[#1A1C1E] text-white border-[#1A1C1E] shadow-xl' : 'bg-white text-gray-400 border-gray-100 hover:border-orange-200'
+                  }`}
+                >
+                  Todas
+                </button>
+                <button 
+                  onClick={() => setSearchQuery('favoritos')}
+                  className={`flex-shrink-0 px-6 py-2.5 rounded-full text-xs font-black uppercase tracking-widest border transition-all ${
+                    searchQuery.toLowerCase() === 'favoritos' ? 'bg-orange-500 text-white border-orange-500 shadow-xl shadow-orange-500/20' : 'bg-white text-gray-400 border-gray-100 hover:border-orange-200'
+                  }`}
+                >
+                  Favoritos
+                </button>
+                <button 
+                  onClick={() => setSearchQuery('guardados')}
+                  className={`flex-shrink-0 px-6 py-2.5 rounded-full text-xs font-black uppercase tracking-widest border transition-all ${
+                    searchQuery.toLowerCase() === 'guardados' ? 'bg-orange-500 text-white border-orange-500 shadow-xl shadow-orange-500/20' : 'bg-white text-gray-400 border-gray-100 hover:border-orange-200'
+                  }`}
+                >
+                  Para después
+                </button>
+              </div>
+
+              {/* Search & Hero / Grid */}
+              <div className="space-y-12">
+                {searchQuery === '' ? (
+                  <>
+                    {/* Featured Hero for the current step */}
+                    {filteredRecipes.length > 0 && (
+                      <motion.div 
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        className="relative h-[400px] rounded-[40px] overflow-hidden shadow-2xl group cursor-pointer"
+                        onClick={() => handleSelectRecipe(filteredRecipes[0].id)}
                       >
-                        <div className="relative aspect-square">
-                          <img src={recipe.image} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" referrerPolicy="no-referrer" />
-                          {isSelected && (
-                            <div className="absolute inset-0 bg-orange-500/40 flex items-center justify-center">
-                              <CheckCircle2 className="w-10 h-10 text-white" />
-                            </div>
-                          )}
-                          <div className="absolute top-2 right-2">
-                            <span className="text-[10px] font-black text-white bg-black/40 backdrop-blur-md px-2 py-1 rounded-full">
-                              ${recipe.ingredients.reduce((s,i)=>s+i.estimatedCost,0).toFixed(2)}
+                        <img 
+                          src={filteredRecipes[0].image} 
+                          className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105" 
+                          referrerPolicy="no-referrer"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/40 to-transparent" />
+                        
+                        {/* Selection Indicator on Hero */}
+                        {setupSelectedPool.some(item => item.id === filteredRecipes[0].id) && (
+                          <div className="absolute top-6 right-6 bg-orange-500 text-white p-3 rounded-full shadow-2xl border-4 border-white/20">
+                            <CheckCircle2 className="w-6 h-6" />
+                          </div>
+                        )}
+
+                        <div className="absolute inset-0 flex flex-col justify-center p-12 space-y-6 max-w-2xl">
+                          <div className="flex items-center gap-2">
+                            <span className="bg-orange-500 text-white text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest">
+                              Recomendado
+                            </span>
+                            <span className="text-white/60 text-[10px] font-black uppercase tracking-widest">
+                              • {filteredRecipes[0].category}
                             </span>
                           </div>
-                        </div>
-                        <div className="p-3 text-left space-y-1 flex-1 flex flex-col justify-between">
-                          <div>
-                            <h4 className="font-bold text-xs line-clamp-1">{recipe.name}</h4>
-                            <p className="text-[9px] text-gray-400 line-clamp-2 leading-tight">{recipe.description}</p>
+                          <h3 className="text-6xl font-black text-white tracking-tighter leading-none">
+                            {filteredRecipes[0].name}
+                          </h3>
+                          <p className="text-white/70 text-lg font-medium line-clamp-2">
+                            {filteredRecipes[0].description}
+                          </p>
+                          <div className="flex items-center gap-4 pt-4">
+                            <button className="bg-white text-black px-8 py-4 rounded-2xl font-black text-sm uppercase tracking-widest hover:bg-orange-500 hover:text-white transition-all flex items-center gap-2">
+                              {setupSelectedPool.some(item => item.id === filteredRecipes[0].id) ? 'Deseleccionar' : 'Seleccionar'}
+                              <ArrowRight className="w-4 h-4" />
+                            </button>
                           </div>
                         </div>
-                      </button>
-                    );
-                  })}
-                </div>
+                      </motion.div>
+                    )}
 
-                {/* Floating Selection Bar */}
+                    {/* Category Row for current step */}
+                    {(() => {
+                      const catMap = { breakfast: 'Breakfast', lunch: 'Lunch', dinner: 'Dinner' };
+                      const category = catMap[setupStep];
+                      const categoryRecipes = filteredRecipes; // Already filtered by step
+                      if (categoryRecipes.length === 0) return null;
+                      
+                      return (
+                        <div className="space-y-6">
+                          <div className="flex items-center justify-between px-2">
+                            <h3 className="text-2xl font-black tracking-tight">
+                              {category === 'Breakfast' ? 'Opciones de Desayuno' : category === 'Lunch' ? 'Opciones de Almuerzo' : 'Opciones de Cena'}
+                            </h3>
+                          </div>
+                          
+                          <div className="flex gap-6 overflow-x-auto no-scrollbar pb-8 px-2 -mx-2">
+                            {categoryRecipes.map(recipe => {
+                              const isSelected = setupSelectedPool.some(item => item.id === recipe.id);
+                              const matchCount = recipe.ingredients.filter(i => inventory.has(i.name.toLowerCase())).length;
+                              return (
+                                <motion.div 
+                                  key={recipe.id}
+                                  whileHover={{ scale: 1.05, zIndex: 10 }}
+                                  onClick={() => handleSelectRecipe(recipe.id)}
+                                  className="flex-shrink-0 w-[240px] group cursor-pointer"
+                                >
+                                  <div className={`relative aspect-[2/3] rounded-[24px] overflow-hidden shadow-lg transition-all duration-300 group-hover:shadow-2xl ${
+                                    isSelected ? 'ring-4 ring-orange-500 ring-offset-4 ring-offset-gray-50' : ''
+                                  }`}>
+                                    <img 
+                                      src={recipe.image} 
+                                      className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" 
+                                      referrerPolicy="no-referrer" 
+                                    />
+                                    <div className={`absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent transition-opacity ${
+                                      isSelected ? 'opacity-90' : 'opacity-80 group-hover:opacity-100'
+                                    }`} />
+                                    
+                                    <div className="absolute top-3 left-3 flex items-center gap-2">
+                                      {isSelected ? (
+                                        <div className="bg-orange-500 text-white p-1.5 rounded-full shadow-lg">
+                                          <CheckCircle2 className="w-3 h-3" />
+                                        </div>
+                                      ) : matchCount > 0 && (
+                                        <div className="bg-green-500 text-white p-1.5 rounded-full shadow-lg">
+                                          <CheckCircle2 className="w-3 h-3" />
+                                        </div>
+                                      )}
+                                      {favorites.has(recipe.id) && (
+                                        <div className="bg-orange-500 text-white p-1.5 rounded-full shadow-lg">
+                                          <Star className="w-3 h-3 fill-current" />
+                                        </div>
+                                      )}
+                                    </div>
+
+                                    <div className="absolute bottom-0 left-0 right-0 p-5 space-y-2">
+                                      <h4 className="text-white font-black text-sm leading-tight group-hover:text-orange-400 transition-colors line-clamp-2">
+                                        {recipe.name}
+                                      </h4>
+                                      <div className="flex items-center justify-between">
+                                        <span className="text-orange-400 font-black text-xs">${recipe.ingredients.reduce((s,i)=>s+i.estimatedCost,0).toFixed(2)}</span>
+                                        <div className="flex items-center gap-1 text-white/60 text-[10px] font-bold">
+                                          <Clock className="w-3 h-3" />
+                                          20m
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </motion.div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })()}
+                  </>
+                ) : (
+                  /* Search Results Grid */
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-6 pb-32">
+                    {filteredRecipes.map(recipe => {
+                      const isSelected = setupSelectedPool.some(item => item.id === recipe.id);
+                      const matchCount = recipe.ingredients.filter(i => inventory.has(i.name.toLowerCase())).length;
+                      return (
+                        <motion.div 
+                          layout
+                          key={recipe.id}
+                          onClick={() => handleSelectRecipe(recipe.id)}
+                          className="group relative cursor-pointer"
+                        >
+                          <div className={`relative aspect-[2/3] rounded-[24px] overflow-hidden shadow-lg transition-all duration-500 group-hover:shadow-2xl group-hover:-translate-y-2 ${
+                            isSelected ? 'ring-4 ring-orange-500 ring-offset-4 ring-offset-gray-50' : ''
+                          }`}>
+                            <img 
+                              src={recipe.image} 
+                              className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" 
+                              referrerPolicy="no-referrer" 
+                            />
+                            
+                            <div className={`absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent transition-opacity ${
+                              isSelected ? 'opacity-90' : 'opacity-80 group-hover:opacity-100'
+                            }`} />
+                            
+                            <div className="absolute top-3 left-3 right-3 flex justify-between items-start">
+                              <div className="flex items-center gap-2">
+                                <span className="bg-white/20 backdrop-blur-md text-white text-[8px] font-black px-2 py-1 rounded-lg uppercase tracking-widest border border-white/10">
+                                  {recipe.category}
+                                </span>
+                                {favorites.has(recipe.id) && (
+                                  <div className="bg-orange-500 text-white p-1 rounded-lg shadow-lg">
+                                    <Star className="w-2.5 h-2.5 fill-current" />
+                                  </div>
+                                )}
+                              </div>
+                              {isSelected ? (
+                                <div className="bg-orange-500 text-white p-1.5 rounded-full shadow-lg">
+                                  <CheckCircle2 className="w-4 h-4" />
+                                </div>
+                              ) : matchCount > 0 && (
+                                <div className="bg-green-500 text-white p-1.5 rounded-full shadow-lg">
+                                  <CheckCircle2 className="w-3 h-3" />
+                                </div>
+                              )}
+                            </div>
+
+                            <div className="absolute bottom-0 left-0 right-0 p-5 space-y-2">
+                              <div className="flex items-center justify-between gap-2">
+                                <h4 className="text-white font-black text-sm leading-tight group-hover:text-orange-400 transition-colors line-clamp-2">
+                                  {recipe.name}
+                                </h4>
+                              </div>
+                              
+                              <div className="flex items-center justify-between">
+                                <span className="text-orange-400 font-black text-xs">${recipe.ingredients.reduce((s,i)=>s+i.estimatedCost,0).toFixed(2)}</span>
+                                <div className="flex items-center gap-1 text-white/60 text-[10px] font-bold">
+                                  <Clock className="w-3 h-3" />
+                                  20m
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </motion.div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Floating Selection Bar */}
                 <AnimatePresence>
                   {setupSelectedPool.filter(item => item.category === (setupStep === 'breakfast' ? 'Breakfast' : setupStep === 'lunch' ? 'Lunch' : 'Dinner')).length > 0 && (
                     <motion.div 
@@ -926,7 +1209,6 @@ export default function App() {
                     </motion.div>
                   )}
                 </AnimatePresence>
-              </div>
             </motion.div>
           )}
 
@@ -1141,6 +1423,14 @@ export default function App() {
                 >
                   Favoritos
                 </button>
+                <button 
+                  onClick={() => setSearchQuery('guardados')}
+                  className={`flex-shrink-0 px-6 py-2.5 rounded-full text-xs font-black uppercase tracking-widest border transition-all ${
+                    searchQuery.toLowerCase() === 'guardados' ? 'bg-orange-500 text-white border-orange-500 shadow-xl shadow-orange-500/20' : 'bg-white text-gray-400 border-gray-100 hover:border-orange-200'
+                  }`}
+                >
+                  Para después
+                </button>
                 {['Breakfast', 'Lunch', 'Dinner'].map(cat => (
                   <button 
                     key={cat}
@@ -1283,7 +1573,7 @@ export default function App() {
                   </>
                 ) : (
                   /* Search Results Grid */
-                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-6">
                     {filteredRecipes.map(recipe => {
                       const matchCount = recipe.ingredients.filter(i => inventory.has(i.name.toLowerCase())).length;
                       return (
@@ -1482,39 +1772,40 @@ export default function App() {
       </AnimatePresence>
 
       {/* Bottom Navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 px-6 py-4 flex justify-between items-center z-30">
+      <nav className="fixed bottom-0 left-0 right-0 bg-white/80 backdrop-blur-xl border-t border-gray-100 px-8 py-4 flex justify-between lg:hidden items-center z-30 sm:max-w-lg sm:mx-auto sm:left-6 sm:right-6 sm:bottom-6 sm:rounded-[32px] sm:border sm:shadow-2xl sm:shadow-black/10">
         <button 
           onClick={() => setView('dashboard')}
-          className={`flex flex-col items-center gap-1 transition-colors ${view === 'dashboard' ? 'text-orange-500' : 'text-gray-400'}`}
+          className={`flex flex-col items-center gap-1 transition-all duration-300 ${view === 'dashboard' ? 'text-orange-500 scale-110' : 'text-gray-400 hover:text-gray-600'}`}
         >
-          <Home className="w-6 h-6" />
-          <span className="text-[10px] font-bold uppercase tracking-widest">Inicio</span>
+          <Home className={`w-6 h-6 ${view === 'dashboard' ? 'fill-orange-50' : ''}`} />
+          <span className="text-[10px] font-black uppercase tracking-widest">Inicio</span>
         </button>
         <button 
           onClick={() => {
             setView('calendar');
             setIsShowingCalendarCTA(true);
           }}
-          className={`flex flex-col items-center gap-1 transition-colors ${view === 'calendar' ? 'text-orange-500' : 'text-gray-400'}`}
+          className={`flex flex-col items-center gap-1 transition-all duration-300 ${view === 'calendar' ? 'text-orange-500 scale-110' : 'text-gray-400 hover:text-gray-600'}`}
         >
-          <CalendarIcon className="w-6 h-6" />
-          <span className="text-[10px] font-bold uppercase tracking-widest">Plan</span>
+          <CalendarIcon className={`w-6 h-6 ${view === 'calendar' ? 'fill-orange-50' : ''}`} />
+          <span className="text-[10px] font-black uppercase tracking-widest">Plan</span>
         </button>
         <button 
           onClick={() => setView('planner')}
-          className={`flex flex-col items-center gap-1 transition-colors ${view === 'planner' ? 'text-orange-500' : 'text-gray-400'}`}
+          className={`flex flex-col items-center gap-1 transition-all duration-300 ${view === 'planner' ? 'text-orange-500 scale-110' : 'text-gray-400 hover:text-gray-600'}`}
         >
-          <Utensils className="w-6 h-6" />
-          <span className="text-[10px] font-bold uppercase tracking-widest">Recetas</span>
+          <Utensils className={`w-6 h-6 ${view === 'planner' ? 'fill-orange-50' : ''}`} />
+          <span className="text-[10px] font-black uppercase tracking-widest">Recetas</span>
         </button>
         <button 
           onClick={() => setView('inventory')}
-          className={`flex flex-col items-center gap-1 transition-colors ${view === 'inventory' ? 'text-orange-500' : 'text-gray-400'}`}
+          className={`flex flex-col items-center gap-1 transition-all duration-300 ${view === 'inventory' ? 'text-orange-500 scale-110' : 'text-gray-400 hover:text-gray-600'}`}
         >
-          <Package className="w-6 h-6" />
-          <span className="text-[10px] font-bold uppercase tracking-widest">Despensa</span>
+          <Package className={`w-6 h-6 ${view === 'inventory' ? 'fill-orange-50' : ''}`} />
+          <span className="text-[10px] font-black uppercase tracking-widest">Despensa</span>
         </button>
       </nav>
     </div>
-  );
+  </div>
+);
 }
