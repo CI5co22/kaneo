@@ -1004,9 +1004,15 @@ export default function App() {
                             <h3 className="text-2xl font-black tracking-tight">
                               {category === 'Breakfast' ? 'Opciones de Desayuno' : category === 'Lunch' ? 'Opciones de Almuerzo' : 'Opciones de Cena'}
                             </h3>
+                            <button 
+                              onClick={() => setSearchQuery(category)}
+                              className="text-orange-500 font-black text-xs uppercase tracking-widest hover:underline"
+                            >
+                              Ver Todo
+                            </button>
                           </div>
                           
-                          <div className="flex gap-6 overflow-x-auto no-scrollbar pb-8 px-2 -mx-2">
+                          <div className="flex gap-4 overflow-x-auto no-scrollbar pb-8 px-2 -mx-2">
                             {categoryRecipes.map(recipe => {
                               const isSelected = setupSelectedPool.some(item => item.id === recipe.id);
                               const matchCount = recipe.ingredients.filter(i => inventory.has(i.name.toLowerCase())).length;
@@ -1015,9 +1021,9 @@ export default function App() {
                                   key={recipe.id}
                                   whileHover={{ scale: 1.05, zIndex: 10 }}
                                   onClick={() => handleSelectRecipe(recipe.id)}
-                                  className="flex-shrink-0 w-[240px] group cursor-pointer"
+                                  className="flex-shrink-0 w-[200px] group cursor-pointer"
                                 >
-                                  <div className={`relative aspect-[2/3] rounded-[24px] overflow-hidden shadow-lg transition-all duration-300 group-hover:shadow-2xl ${
+                                  <div className={`relative aspect-[3/4] rounded-[20px] overflow-hidden shadow-lg transition-all duration-300 group-hover:shadow-2xl ${
                                     isSelected ? 'ring-4 ring-orange-500 ring-offset-4 ring-offset-gray-50' : ''
                                   }`}>
                                     <img 
@@ -1046,7 +1052,7 @@ export default function App() {
                                       )}
                                     </div>
 
-                                    <div className="absolute bottom-0 left-0 right-0 p-5 space-y-2">
+                                    <div className="absolute bottom-0 left-0 right-0 p-4 space-y-2">
                                       <h4 className="text-white font-black text-sm leading-tight group-hover:text-orange-400 transition-colors line-clamp-2">
                                         {recipe.name}
                                       </h4>
@@ -1069,7 +1075,7 @@ export default function App() {
                   </>
                 ) : (
                   /* Search Results Grid */
-                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-6 pb-32">
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4 pb-32">
                     {filteredRecipes.map(recipe => {
                       const isSelected = setupSelectedPool.some(item => item.id === recipe.id);
                       const matchCount = recipe.ingredients.filter(i => inventory.has(i.name.toLowerCase())).length;
@@ -1080,7 +1086,7 @@ export default function App() {
                           onClick={() => handleSelectRecipe(recipe.id)}
                           className="group relative cursor-pointer"
                         >
-                          <div className={`relative aspect-[2/3] rounded-[24px] overflow-hidden shadow-lg transition-all duration-500 group-hover:shadow-2xl group-hover:-translate-y-2 ${
+                          <div className={`relative aspect-[3/4] rounded-[20px] overflow-hidden shadow-lg transition-all duration-500 group-hover:shadow-2xl group-hover:-translate-y-2 ${
                             isSelected ? 'ring-4 ring-orange-500 ring-offset-4 ring-offset-gray-50' : ''
                           }`}>
                             <img 
@@ -1115,7 +1121,7 @@ export default function App() {
                               )}
                             </div>
 
-                            <div className="absolute bottom-0 left-0 right-0 p-5 space-y-2">
+                            <div className="absolute bottom-0 left-0 right-0 p-4 space-y-2">
                               <div className="flex items-center justify-between gap-2">
                                 <h4 className="text-white font-black text-sm leading-tight group-hover:text-orange-400 transition-colors line-clamp-2">
                                   {recipe.name}
@@ -1512,7 +1518,7 @@ export default function App() {
                             </button>
                           </div>
                           
-                          <div className="flex gap-6 overflow-x-auto no-scrollbar pb-8 px-2 -mx-2">
+                          <div className="flex gap-4 overflow-x-auto no-scrollbar pb-8 px-2 -mx-2">
                             {categoryRecipes.map(recipe => {
                               const matchCount = recipe.ingredients.filter(i => inventory.has(i.name.toLowerCase())).length;
                               return (
@@ -1527,9 +1533,9 @@ export default function App() {
                                       navigateTo('recipe-details');
                                     }
                                   }}
-                                  className="flex-shrink-0 w-[240px] group cursor-pointer"
+                                  className="flex-shrink-0 w-[200px] group cursor-pointer"
                                 >
-                                  <div className="relative aspect-[2/3] rounded-[24px] overflow-hidden shadow-lg transition-all duration-300 group-hover:shadow-2xl">
+                                  <div className="relative aspect-[3/4] rounded-[20px] overflow-hidden shadow-lg transition-all duration-300 group-hover:shadow-2xl">
                                     <img 
                                       src={recipe.image} 
                                       className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" 
@@ -1550,7 +1556,7 @@ export default function App() {
                                       )}
                                     </div>
 
-                                    <div className="absolute bottom-0 left-0 right-0 p-5 space-y-2">
+                                    <div className="absolute bottom-0 left-0 right-0 p-4 space-y-2">
                                       <h4 className="text-white font-black text-sm leading-tight group-hover:text-orange-400 transition-colors line-clamp-2">
                                         {recipe.name}
                                       </h4>
@@ -1573,7 +1579,7 @@ export default function App() {
                   </>
                 ) : (
                   /* Search Results Grid */
-                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-6">
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4">
                     {filteredRecipes.map(recipe => {
                       const matchCount = recipe.ingredients.filter(i => inventory.has(i.name.toLowerCase())).length;
                       return (
@@ -1590,7 +1596,7 @@ export default function App() {
                           }}
                           className="group relative cursor-pointer"
                         >
-                          <div className="relative aspect-[2/3] rounded-[24px] overflow-hidden shadow-lg transition-all duration-500 group-hover:shadow-2xl group-hover:-translate-y-2">
+                          <div className="relative aspect-[3/4] rounded-[20px] overflow-hidden shadow-lg transition-all duration-500 group-hover:shadow-2xl group-hover:-translate-y-2">
                             <img 
                               src={recipe.image} 
                               className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" 
@@ -1620,7 +1626,7 @@ export default function App() {
                             </div>
 
                             {/* Content */}
-                            <div className="absolute bottom-0 left-0 right-0 p-5 space-y-2">
+                            <div className="absolute bottom-0 left-0 right-0 p-4 space-y-2">
                               <div className="flex items-center justify-between gap-2">
                                 <h4 className="text-white font-black text-sm leading-tight group-hover:text-orange-400 transition-colors line-clamp-2">
                                   {recipe.name}
