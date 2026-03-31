@@ -476,21 +476,21 @@ export default function App() {
       </AnimatePresence>
 
       {/* Top Bar */}
-      <header className="bg-white border-b border-gray-100 sticky top-0 z-20 px-6 py-4 flex items-center justify-between lg:hidden">
+      <header className="bg-white border-b border-gray-100 sticky top-0 z-20 px-4 py-3 sm:px-6 sm:py-4 flex items-center justify-between lg:hidden">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-orange-500 rounded-xl flex items-center justify-center">
-            <ChefHat className="w-5 h-5 text-white" />
+          <div className="w-7 h-7 sm:w-8 sm:h-8 bg-orange-500 rounded-lg sm:rounded-xl flex items-center justify-center">
+            <ChefHat className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
           </div>
-          <span className="font-bold text-lg tracking-tight">StudentPlan</span>
+          <span className="font-bold text-base sm:text-lg tracking-tight">StudentPlan</span>
         </div>
-        <div className="flex items-center gap-2 bg-gray-50 px-3 py-1.5 rounded-full border border-gray-100">
-          <Wallet className="w-4 h-4 text-gray-500" />
-          <span className="text-xs font-bold text-gray-600">${totalCost.toFixed(2)}</span>
+        <div className="flex items-center gap-2 bg-gray-50 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-full border border-gray-100">
+          <Wallet className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gray-500" />
+          <span className="text-[10px] sm:text-xs font-bold text-gray-600">${totalCost.toFixed(2)}</span>
         </div>
       </header>
 
       {/* Main Content */}
-      <div className="flex min-h-[calc(100vh-64px)] lg:min-h-screen">
+      <div className="flex h-[calc(100vh-64px)] lg:h-screen overflow-hidden">
         {/* Sidebar for Calendar View */}
         <AnimatePresence>
           {view === 'calendar' && (!isPlanComplete || isEditingPlan || !hasFinalizedInitialPlan) && (!(!hasFinalizedInitialPlan && isShowingCalendarCTA)) && (
@@ -569,94 +569,105 @@ export default function App() {
           )}
         </AnimatePresence>
 
-        <main className={`flex-1 transition-all duration-300 ${view === 'calendar' ? (isPlanComplete && hasFinalizedInitialPlan && !isEditingPlan ? 'max-w-5xl mx-auto' : 'max-w-none') : (view === 'recipe-details' || view === 'planner' || view === 'dashboard' || view === 'setup' ? 'max-w-7xl mx-auto' : 'max-w-2xl md:max-w-4xl mx-auto')} px-6 py-8 lg:px-12 lg:py-16`}>
-          <AnimatePresence mode="wait">
+        <main className={`flex-1 flex flex-col transition-all duration-300 ${view === 'calendar' ? (isPlanComplete && hasFinalizedInitialPlan && !isEditingPlan ? 'max-w-5xl mx-auto' : 'max-w-none') : (view === 'recipe-details' || view === 'planner' || view === 'dashboard' || view === 'setup' ? 'max-w-7xl mx-auto' : 'max-w-2xl md:max-w-4xl mx-auto')} h-full overflow-hidden`}>
+          <div className="flex-1 overflow-y-auto no-scrollbar px-3 py-3 sm:px-6 sm:py-8 lg:px-12 lg:py-16 pb-20 lg:pb-16">
+            <AnimatePresence mode="wait">
           {view === 'dashboard' && (
             <motion.div
               key="dashboard"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
-              className="space-y-8"
+              className="space-y-3 sm:space-y-8 h-full flex flex-col"
             >
               {/* Welcome Message */}
-              <div className="space-y-2">
-                <h2 className="text-3xl font-black tracking-tight">¡Hola, Arnold👋!</h2>
-                <p className="text-gray-500 font-medium">¿Qué vamos a cocinar hoy?</p>
+              <div className="flex items-center justify-between">
+                <div className="space-y-0 sm:space-y-2">
+                  <h2 className="text-lg sm:text-3xl font-black tracking-tight">¡Hola, Arnold👋!</h2>
+                  <p className="text-gray-400 sm:text-gray-500 text-[8px] sm:text-sm sm:font-medium">¿Qué cocinamos hoy?</p>
+                </div>
+                {nextMeal && (
+                  <div className="bg-orange-50 px-3 py-1.5 rounded-xl border border-orange-100 flex items-center gap-2 sm:hidden">
+                    <Clock className="w-3 h-3 text-orange-500" />
+                    <span className="text-[8px] font-black text-orange-600 uppercase tracking-widest">{nextMeal.time}</span>
+                  </div>
+                )}
               </div>
 
-              {/* Next Meal Card */}
-              {nextMeal ? (
-                <div className="bg-white rounded-[32px] p-6 shadow-xl shadow-orange-500/10 border border-orange-100 space-y-6">
-                  <div className="flex items-center gap-2">
-                    <span className="bg-orange-500 text-white text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest">Próxima Comida</span>
-                    <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
-                      {nextMeal.day === getCurrentDay() ? 'HOY' : nextMeal.day} • {nextMeal.time}
-                    </span>
-                  </div>
-                  
-                  <div className="flex gap-6">
-                    <img 
-                      src={nextMeal.recipe?.image} 
-                      className="w-28 h-28 rounded-3xl object-cover shadow-lg" 
-                      referrerPolicy="no-referrer"
-                    />
-                    <div className="flex-1 space-y-2 flex flex-col justify-center">
-                      <h3 className="text-2xl font-black leading-tight tracking-tight">{nextMeal.recipe?.name}</h3>
-                      <div className="flex items-center gap-4 text-gray-400 text-xs font-bold">
-                        <span className="flex items-center gap-1.5"><Clock className="w-3.5 h-3.5 text-orange-500" /> 20 min</span>
-                        <span className="flex items-center gap-1.5"><Wallet className="w-3.5 h-3.5 text-orange-500" /> ${nextMeal.recipe?.ingredients.reduce((s,i)=>s+i.estimatedCost,0).toFixed(2)}</span>
+              {/* Next Meal Card - More compact for mobile */}
+              {hasPlan ? (
+                nextMeal ? (
+                  <div className="hidden sm:block bg-white rounded-[24px] sm:rounded-[32px] p-4 sm:p-6 shadow-xl shadow-orange-500/10 border border-orange-100 space-y-4 sm:space-y-6">
+                    <div className="flex items-center gap-2">
+                      <span className="bg-orange-500 text-white text-[8px] sm:text-[10px] font-black px-2 sm:px-3 py-1 rounded-full uppercase tracking-widest">Próxima Comida</span>
+                      <span className="text-[8px] sm:text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                        {nextMeal.day === getCurrentDay() ? 'HOY' : nextMeal.day} • {nextMeal.time}
+                      </span>
+                    </div>
+                    
+                    <div className="flex gap-4 sm:gap-6">
+                      <img 
+                        src={nextMeal.recipe?.image} 
+                        className="w-20 h-20 sm:w-28 sm:h-28 rounded-2xl sm:rounded-3xl object-cover shadow-lg" 
+                        referrerPolicy="no-referrer"
+                      />
+                      <div className="flex-1 space-y-1 sm:space-y-2 flex flex-col justify-center">
+                        <h3 className="text-lg sm:text-2xl font-black leading-tight tracking-tight">{nextMeal.recipe?.name}</h3>
+                        <div className="flex items-center gap-3 sm:gap-4 text-gray-400 text-[10px] sm:text-xs font-bold">
+                          <span className="flex items-center gap-1.5"><Clock className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-orange-500" /> 20 min</span>
+                          <span className="flex items-center gap-1.5"><Wallet className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-orange-500" /> ${nextMeal.recipe?.ingredients.reduce((s,i)=>s+i.estimatedCost,0).toFixed(2)}</span>
+                        </div>
                       </div>
                     </div>
-                  </div>
 
-                  <div className="flex gap-3">
-                    <button 
-                      onClick={handleCook}
-                      className="flex-1 bg-white border-2 border-[#1A1C1E] text-[#1A1C1E] py-4 rounded-2xl font-black flex items-center justify-center gap-2 hover:bg-gray-50 transition-all active:scale-95"
-                    >
-                      <CheckCircle2 className="w-5 h-5" />
-                      Ya lo cociné
-                    </button>
+                    <div className="flex gap-2 sm:gap-3">
+                      <button 
+                        onClick={handleCook}
+                        className="flex-1 bg-white border-2 border-[#1A1C1E] text-[#1A1C1E] py-3 sm:py-4 rounded-xl sm:rounded-2xl font-black text-xs sm:text-base flex items-center justify-center gap-2 hover:bg-gray-50 transition-all active:scale-95"
+                      >
+                        <CheckCircle2 className="w-4 h-4 sm:w-5 sm:h-5" />
+                        Cocinado
+                      </button>
+                      <button 
+                        onClick={() => {
+                          if (nextMeal?.recipe) {
+                            setSelectedRecipeForDetails(nextMeal.recipe);
+                            navigateTo('recipe-details');
+                          }
+                        }}
+                        className="flex-1 bg-[#1A1C1E] text-white py-3 sm:py-4 rounded-xl sm:rounded-2xl font-black text-xs sm:text-base flex items-center justify-center gap-2 hover:bg-black transition-all active:scale-95 shadow-lg shadow-black/10"
+                      >
+                        Cocinar
+                        <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5" />
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="bg-white rounded-[40px] p-10 border-2 border-dashed border-green-200 text-center space-y-6 shadow-sm">
+                    <div className="w-20 h-20 bg-green-50 rounded-full flex items-center justify-center mx-auto">
+                      <CheckCircle2 className="w-10 h-10 text-green-400" />
+                    </div>
+                    <div className="space-y-2">
+                      <h3 className="text-xl font-black tracking-tight">¡Plan completado! 🥳</h3>
+                      <p className="text-sm text-gray-400 font-medium max-w-[200px] mx-auto">Has cocinado todas tus comidas de la semana.</p>
+                    </div>
                     <button 
                       onClick={() => {
-                        if (nextMeal?.recipe) {
-                          setSelectedRecipeForDetails(nextMeal.recipe);
-                          navigateTo('recipe-details');
-                        }
+                        setWeeklyPlan(prev => {
+                          const empty: WeeklyPlan = {};
+                          DAYS.forEach(d => empty[d] = { Desayuno: null, Almuerzo: null, Cena: null });
+                          return empty;
+                        });
+                        setCookedMeals(new Set());
+                        setView('setup');
                       }}
-                      className="flex-1 bg-[#1A1C1E] text-white py-4 rounded-2xl font-black flex items-center justify-center gap-2 hover:bg-black transition-all active:scale-95 shadow-lg shadow-black/10"
+                      className="inline-flex items-center gap-3 bg-green-500 text-white px-8 py-4 rounded-2xl font-black text-sm shadow-lg shadow-green-500/30 hover:scale-105 transition-transform active:scale-95"
                     >
-                      Cocinar
-                      <ArrowRight className="w-5 h-5" />
+                      Empezar nueva semana
+                      <ArrowRight className="w-4 h-4" />
                     </button>
                   </div>
-                </div>
-              ) : hasPlan ? (
-                <div className="bg-white rounded-[40px] p-10 border-2 border-dashed border-green-200 text-center space-y-6 shadow-sm">
-                  <div className="w-20 h-20 bg-green-50 rounded-full flex items-center justify-center mx-auto">
-                    <CheckCircle2 className="w-10 h-10 text-green-400" />
-                  </div>
-                  <div className="space-y-2">
-                    <h3 className="text-xl font-black tracking-tight">¡Plan completado! 🥳</h3>
-                    <p className="text-sm text-gray-400 font-medium max-w-[200px] mx-auto">Has cocinado todas tus comidas de la semana.</p>
-                  </div>
-                  <button 
-                    onClick={() => {
-                      setWeeklyPlan(prev => {
-                        const empty: WeeklyPlan = {};
-                        DAYS.forEach(d => empty[d] = { Desayuno: null, Almuerzo: null, Cena: null });
-                        return empty;
-                      });
-                      setCookedMeals(new Set());
-                      setView('setup');
-                    }}
-                    className="inline-flex items-center gap-3 bg-green-500 text-white px-8 py-4 rounded-2xl font-black text-sm shadow-lg shadow-green-500/30 hover:scale-105 transition-transform active:scale-95"
-                  >
-                    Empezar nueva semana
-                    <ArrowRight className="w-4 h-4" />
-                  </button>
-                </div>
+                )
               ) : (
                 <div className="bg-white rounded-[40px] p-10 border-2 border-dashed border-gray-200 text-center space-y-6 shadow-sm">
                   <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mx-auto">
@@ -687,7 +698,7 @@ export default function App() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="space-y-8"
+              className="space-y-6 sm:space-y-8 h-full overflow-y-auto no-scrollbar pb-20"
             >
               {/* Header Navigation */}
               <div className="flex items-center justify-between">
@@ -723,26 +734,26 @@ export default function App() {
                 
                 {/* Left Column: Image & Ingredients (Sticky on Desktop) */}
                 <div className="lg:col-span-4 space-y-8 lg:sticky lg:top-24">
-                  <div className="relative group overflow-hidden rounded-[40px] shadow-2xl shadow-orange-500/10">
+                  <div className="relative group overflow-hidden rounded-[30px] sm:rounded-[40px] shadow-2xl shadow-orange-500/10">
                     <img 
                       src={selectedRecipeForDetails.image} 
-                      className="w-full aspect-[4/5] md:aspect-video lg:aspect-[4/5] object-cover transition-transform duration-700 group-hover:scale-110" 
+                      className="w-full aspect-video sm:aspect-[4/5] object-cover transition-transform duration-700 group-hover:scale-110" 
                       referrerPolicy="no-referrer"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-60" />
-                    <div className="absolute bottom-6 left-6 right-6">
-                      <div className="flex items-center gap-4 text-white/90 text-xs font-bold">
-                        <span className="flex items-center gap-1.5 bg-white/20 backdrop-blur-md px-3 py-1.5 rounded-full">
-                          <Clock className="w-3.5 h-3.5 text-orange-400" /> 25 min
+                    <div className="absolute bottom-4 left-4 sm:bottom-6 sm:left-6 right-6">
+                      <div className="flex items-center gap-3 sm:gap-4 text-white/90 text-[10px] sm:text-xs font-bold">
+                        <span className="flex items-center gap-1.5 bg-white/20 backdrop-blur-md px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-full">
+                          <Clock className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-orange-400" /> 25 min
                         </span>
-                        <span className="flex items-center gap-1.5 bg-white/20 backdrop-blur-md px-3 py-1.5 rounded-full">
-                          <Utensils className="w-3.5 h-3.5 text-orange-400" /> Fácil
+                        <span className="flex items-center gap-1.5 bg-white/20 backdrop-blur-md px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-full">
+                          <Utensils className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-orange-400" /> Fácil
                         </span>
                       </div>
                     </div>
                   </div>
 
-                  <div className="bg-white rounded-[32px] p-8 border border-gray-100 shadow-sm space-y-6">
+                  <div className="bg-white rounded-[24px] sm:rounded-[32px] p-5 sm:p-8 border border-gray-100 shadow-sm space-y-4 sm:space-y-6">
                     <div className="flex items-center justify-between">
                       <h4 className="text-sm font-black uppercase tracking-widest text-gray-900 flex items-center gap-2">
                         <ShoppingCart className="w-4 h-4 text-orange-500" />
@@ -777,10 +788,10 @@ export default function App() {
                 </div>
 
                 {/* Right Column: Title & Instructions */}
-                <div className="lg:col-span-8 space-y-8">
-                  <div className="bg-white rounded-[40px] p-10 border border-gray-100 shadow-sm space-y-6">
-                    <div className="space-y-4">
-                      <h3 className="text-4xl sm:text-5xl font-black tracking-tighter leading-[0.9] text-[#1A1C1E]">
+                <div className="lg:col-span-8 space-y-6 sm:space-y-8">
+                  <div className="bg-white rounded-[30px] sm:rounded-[40px] p-6 sm:p-10 border border-gray-100 shadow-sm space-y-4 sm:space-y-6">
+                    <div className="space-y-2 sm:space-y-4">
+                      <h3 className="text-2xl sm:text-5xl font-black tracking-tighter leading-tight sm:leading-[0.9] text-[#1A1C1E]">
                         {selectedRecipeForDetails.name}
                       </h3>
                     </div>
@@ -885,7 +896,7 @@ export default function App() {
                     >
                       <ArrowRight className="w-4 h-4 rotate-180" />
                     </button>
-                    <h2 className="text-4xl font-black tracking-tighter leading-none">
+                    <h2 className="text-2xl sm:text-3xl md:text-4xl font-black tracking-tighter leading-none">
                       {setupStep === 'breakfast' ? '¿Qué desayunarás?' : 
                        setupStep === 'lunch' ? '¿Qué almorzarás?' : '¿Qué cenarás?'}
                     </h2>
@@ -949,7 +960,7 @@ export default function App() {
                       <motion.div 
                         initial={{ opacity: 0, scale: 0.95 }}
                         animate={{ opacity: 1, scale: 1 }}
-                        className="relative h-[400px] rounded-[40px] overflow-hidden shadow-2xl group cursor-pointer"
+                        className="relative h-[280px] sm:h-[350px] md:h-[400px] rounded-[30px] sm:rounded-[40px] overflow-hidden shadow-2xl group cursor-pointer"
                         onClick={() => handleSelectRecipe(filteredRecipes[0].id)}
                       >
                         <img 
@@ -961,30 +972,30 @@ export default function App() {
                         
                         {/* Selection Indicator on Hero */}
                         {setupSelectedPool.some(item => item.id === filteredRecipes[0].id) && (
-                          <div className="absolute top-6 right-6 bg-orange-500 text-white p-3 rounded-full shadow-2xl border-4 border-white/20">
-                            <CheckCircle2 className="w-6 h-6" />
+                          <div className="absolute top-4 right-4 sm:top-6 sm:right-6 bg-orange-500 text-white p-2 sm:p-3 rounded-full shadow-2xl border-2 sm:border-4 border-white/20">
+                            <CheckCircle2 className="w-4 h-4 sm:w-6 sm:h-6" />
                           </div>
                         )}
 
-                        <div className="absolute inset-0 flex flex-col justify-center p-12 space-y-6 max-w-2xl">
+                        <div className="absolute inset-0 flex flex-col justify-center p-6 sm:p-8 md:p-12 space-y-3 sm:space-y-6 max-w-2xl">
                           <div className="flex items-center gap-2">
-                            <span className="bg-orange-500 text-white text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest">
+                            <span className="bg-orange-500 text-white text-[8px] sm:text-[10px] font-black px-2 sm:px-3 py-1 rounded-full uppercase tracking-widest">
                               Recomendado
                             </span>
-                            <span className="text-white/60 text-[10px] font-black uppercase tracking-widest">
+                            <span className="text-white/60 text-[8px] sm:text-[10px] font-black uppercase tracking-widest">
                               • {filteredRecipes[0].category}
                             </span>
                           </div>
-                          <h3 className="text-6xl font-black text-white tracking-tighter leading-none">
+                          <h3 className="text-3xl sm:text-4xl md:text-6xl font-black text-white tracking-tighter leading-tight sm:leading-none">
                             {filteredRecipes[0].name}
                           </h3>
-                          <p className="text-white/70 text-lg font-medium line-clamp-2">
+                          <p className="text-white/70 text-xs sm:text-base md:text-lg font-medium line-clamp-2">
                             {filteredRecipes[0].description}
                           </p>
-                          <div className="flex items-center gap-4 pt-4">
-                            <button className="bg-white text-black px-8 py-4 rounded-2xl font-black text-sm uppercase tracking-widest hover:bg-orange-500 hover:text-white transition-all flex items-center gap-2">
+                          <div className="flex items-center gap-4 pt-2 sm:pt-4">
+                            <button className="bg-white text-black px-5 py-2.5 sm:px-8 sm:py-4 rounded-xl sm:rounded-2xl font-black text-[10px] sm:text-sm uppercase tracking-widest hover:bg-orange-500 hover:text-white transition-all flex items-center gap-2">
                               {setupSelectedPool.some(item => item.id === filteredRecipes[0].id) ? 'Deseleccionar' : 'Seleccionar'}
-                              <ArrowRight className="w-4 h-4" />
+                              <ArrowRight className="w-3 h-3 sm:w-4 sm:h-4" />
                             </button>
                           </div>
                         </div>
@@ -1224,7 +1235,7 @@ export default function App() {
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -20 }}
-              className="space-y-8"
+              className="space-y-6 sm:space-y-8 h-full overflow-y-auto no-scrollbar pb-20"
             >
               {!hasFinalizedInitialPlan && isShowingCalendarCTA ? (
                 <div className="bg-white rounded-[40px] p-10 border-2 border-dashed border-gray-200 text-center space-y-6 shadow-sm">
@@ -1294,8 +1305,46 @@ export default function App() {
                     )}
                   </div>
 
-                  <div className="bg-white rounded-[40px] p-4 md:p-8 border border-gray-100 shadow-xl shadow-gray-200/50 overflow-x-auto no-scrollbar">
-                    <div className="min-w-[800px]">
+                  <div className="bg-white rounded-[30px] sm:rounded-[40px] p-4 sm:p-8 border border-gray-100 shadow-xl shadow-gray-200/50 overflow-x-auto no-scrollbar">
+                    {/* Calendar Mobile View: Vertical List for Active Day */}
+                    <div className="sm:hidden space-y-4">
+                      {MEALS.map(time => {
+                        const isLocked = isPlanComplete && hasFinalizedInitialPlan && !isEditingPlan;
+                        return (
+                          <div key={time} className="flex items-center gap-4">
+                            <div className="w-16 text-right">
+                              <span className="text-[8px] font-black text-gray-400 uppercase tracking-widest">{time}</span>
+                            </div>
+                            <div className="flex-1">
+                              <MealSlot
+                                day={activeDay}
+                                time={time}
+                                recipeId={weeklyPlan[activeDay]?.[time]}
+                                isSelected={selectedSlot?.day === activeDay && selectedSlot?.time === time}
+                                isActiveDay={true}
+                                isLocked={isLocked}
+                                isCooked={cookedMeals.has(`${activeDay}-${time}`)}
+                                onClick={() => {
+                                  if (isLocked) return;
+                                  if (weeklyPlan[activeDay]?.[time]) {
+                                    setWeeklyPlan(prev => ({
+                                      ...prev,
+                                      [activeDay]: { ...prev[activeDay], [time]: null }
+                                    }));
+                                  } else {
+                                    setSelectedSlot({ day: activeDay, time });
+                                    setView('planner');
+                                  }
+                                }}
+                              />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Calendar Desktop View: 8-column Grid */}
+                    <div className="hidden sm:block min-w-[800px]">
                       <div className="grid grid-cols-8 gap-4 mb-6">
                         <div />
                         {DAYS.map(day => {
@@ -1318,11 +1367,11 @@ export default function App() {
                         })}
                       </div>
 
-                      <div className="space-y-6">
+                      <div className="min-w-[600px] space-y-4 sm:space-y-6">
                         {MEALS.map(time => (
-                          <div key={time} className="grid grid-cols-8 gap-4 items-center">
-                            <div className="text-right pr-4">
-                              <span className="text-[10px] font-black text-gray-900 uppercase tracking-widest">{time}</span>
+                          <div key={time} className="grid grid-cols-8 gap-2 sm:gap-4 items-center">
+                            <div className="text-right pr-2 sm:pr-4">
+                              <span className="text-[8px] sm:text-[10px] font-black text-gray-900 uppercase tracking-widest">{time}</span>
                             </div>
                             {DAYS.map(day => {
                               const isLocked = isPlanComplete && hasFinalizedInitialPlan && !isEditingPlan;
@@ -1370,7 +1419,7 @@ export default function App() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="space-y-10"
+              className="space-y-6 sm:space-y-10 h-full overflow-y-auto no-scrollbar pb-20"
             >
               <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
                 <div className="space-y-2">
@@ -1388,7 +1437,7 @@ export default function App() {
                     >
                       <ArrowRight className="w-4 h-4 rotate-180" />
                     </button>
-                    <h2 className="text-4xl font-black tracking-tighter">
+                    <h2 className="text-2xl sm:text-3xl md:text-4xl font-black tracking-tighter">
                       {selectedSlot ? `Elegir para ${selectedSlot.day}` : 'Explorar Recetas'}
                     </h2>
                   </div>
@@ -1451,14 +1500,14 @@ export default function App() {
               </div>
 
               {/* Search & Hero / Grid */}
-              <div className="space-y-12">
+              <div className="space-y-4 sm:space-y-12">
                 {searchQuery === '' ? (
                   <>
                     {/* Featured Hero */}
                     <motion.div 
                       initial={{ opacity: 0, scale: 0.95 }}
                       animate={{ opacity: 1, scale: 1 }}
-                      className="relative h-[400px] rounded-[40px] overflow-hidden shadow-2xl group cursor-pointer"
+                      className="relative h-[160px] sm:h-[350px] md:h-[400px] rounded-[24px] sm:rounded-[40px] overflow-hidden shadow-2xl group cursor-pointer"
                       onClick={() => {
                         const featured = RECIPES[0];
                         if (selectedSlot) {
@@ -1475,25 +1524,25 @@ export default function App() {
                         referrerPolicy="no-referrer"
                       />
                       <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/40 to-transparent" />
-                      <div className="absolute inset-0 flex flex-col justify-center p-12 space-y-6 max-w-2xl">
+                      <div className="absolute inset-0 flex flex-col justify-center p-4 sm:p-8 md:p-12 space-y-2 sm:space-y-6 max-w-2xl">
                         <div className="flex items-center gap-2">
-                          <span className="bg-orange-500 text-white text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest">
+                          <span className="bg-orange-500 text-white text-[7px] sm:text-[10px] font-black px-2 sm:px-3 py-0.5 sm:py-1 rounded-full uppercase tracking-widest">
                             Destacado
                           </span>
-                          <span className="text-white/60 text-[10px] font-black uppercase tracking-widest">
+                          <span className="text-white/60 text-[7px] sm:text-[10px] font-black uppercase tracking-widest">
                             • {RECIPES[0].category}
                           </span>
                         </div>
-                        <h3 className="text-6xl font-black text-white tracking-tighter leading-none">
+                        <h3 className="text-xl sm:text-4xl md:text-6xl font-black text-white tracking-tighter leading-tight sm:leading-none">
                           {RECIPES[0].name}
                         </h3>
-                        <p className="text-white/70 text-lg font-medium line-clamp-2">
+                        <p className="text-white/70 text-[10px] sm:text-base md:text-lg font-medium line-clamp-1 sm:line-clamp-2">
                           {RECIPES[0].description}
                         </p>
-                        <div className="flex items-center gap-4 pt-4">
-                          <button className="bg-white text-black px-8 py-4 rounded-2xl font-black text-sm uppercase tracking-widest hover:bg-orange-500 hover:text-white transition-all flex items-center gap-2">
+                        <div className="flex items-center gap-4 pt-1 sm:pt-4">
+                          <button className="bg-white text-black px-4 py-1.5 sm:px-8 sm:py-4 rounded-lg sm:rounded-2xl font-black text-[8px] sm:text-sm uppercase tracking-widest hover:bg-orange-500 hover:text-white transition-all flex items-center gap-2">
                             {selectedSlot ? 'Seleccionar' : 'Ver Detalles'}
-                            <ArrowRight className="w-4 h-4" />
+                            <ArrowRight className="w-3 h-3 sm:w-4 sm:h-4" />
                           </button>
                         </div>
                       </div>
@@ -1505,20 +1554,20 @@ export default function App() {
                       if (categoryRecipes.length === 0) return null;
                       
                       return (
-                        <div key={category} className="space-y-6">
-                          <div className="flex items-center justify-between px-2">
-                            <h3 className="text-2xl font-black tracking-tight">
-                              {category === 'Breakfast' ? 'Desayunos Energéticos' : category === 'Lunch' ? 'Almuerzos Saludables' : 'Cenas Ligeras'}
+                        <div key={category} className="space-y-2 sm:space-y-6">
+                          <div className="flex items-center justify-between px-1 sm:px-2">
+                            <h3 className="text-xs sm:text-xl md:text-2xl font-black tracking-tight">
+                              {category === 'Breakfast' ? 'Desayunos' : category === 'Lunch' ? 'Almuerzos' : 'Cenas'}
                             </h3>
                             <button 
                               onClick={() => setSearchQuery(category)}
-                              className="text-orange-500 font-black text-xs uppercase tracking-widest hover:underline"
+                              className="text-orange-500 font-black text-[10px] sm:text-xs uppercase tracking-widest hover:underline"
                             >
                               Ver Todo
                             </button>
                           </div>
                           
-                          <div className="flex gap-4 overflow-x-auto no-scrollbar pb-8 px-2 -mx-2">
+                          <div className="flex gap-3 sm:gap-4 overflow-x-auto no-scrollbar pb-4 px-1 -mx-1">
                             {categoryRecipes.map(recipe => {
                               const matchCount = recipe.ingredients.filter(i => inventory.has(i.name.toLowerCase())).length;
                               return (
@@ -1533,9 +1582,9 @@ export default function App() {
                                       navigateTo('recipe-details');
                                     }
                                   }}
-                                  className="flex-shrink-0 w-[200px] group cursor-pointer"
+                                  className="flex-shrink-0 w-[120px] sm:w-[200px] group cursor-pointer"
                                 >
-                                  <div className="relative aspect-[3/4] rounded-[20px] overflow-hidden shadow-lg transition-all duration-300 group-hover:shadow-2xl">
+                                  <div className="relative aspect-[3/4] rounded-[12px] sm:rounded-[20px] overflow-hidden shadow-lg transition-all duration-300 group-hover:shadow-2xl">
                                     <img 
                                       src={recipe.image} 
                                       className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" 
@@ -1543,27 +1592,27 @@ export default function App() {
                                     />
                                     <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent opacity-80 group-hover:opacity-100 transition-opacity" />
                                     
-                                    <div className="absolute top-3 left-3 flex items-center gap-2">
+                                    <div className="absolute top-2 left-2 sm:top-3 sm:left-3 flex items-center gap-1 sm:gap-2">
                                       {matchCount > 0 && (
-                                        <div className="bg-green-500 text-white p-1.5 rounded-full shadow-lg">
-                                          <CheckCircle2 className="w-3 h-3" />
+                                        <div className="bg-green-500 text-white p-1 rounded-full shadow-lg">
+                                          <CheckCircle2 className="w-2 h-2 sm:w-3 sm:h-3" />
                                         </div>
                                       )}
                                       {favorites.has(recipe.id) && (
-                                        <div className="bg-orange-500 text-white p-1.5 rounded-full shadow-lg">
-                                          <Star className="w-3 h-3 fill-current" />
+                                        <div className="bg-orange-500 text-white p-1 rounded-full shadow-lg">
+                                          <Star className="w-2 h-2 sm:w-3 sm:h-3 fill-current" />
                                         </div>
                                       )}
                                     </div>
 
-                                    <div className="absolute bottom-0 left-0 right-0 p-4 space-y-2">
-                                      <h4 className="text-white font-black text-sm leading-tight group-hover:text-orange-400 transition-colors line-clamp-2">
+                                    <div className="absolute bottom-0 left-0 right-0 p-3 sm:p-4 space-y-1 sm:space-y-2">
+                                      <h4 className="text-white font-black text-[10px] sm:text-sm leading-tight group-hover:text-orange-400 transition-colors line-clamp-2">
                                         {recipe.name}
                                       </h4>
                                       <div className="flex items-center justify-between">
-                                        <span className="text-orange-400 font-black text-xs">${recipe.ingredients.reduce((s,i)=>s+i.estimatedCost,0).toFixed(2)}</span>
-                                        <div className="flex items-center gap-1 text-white/60 text-[10px] font-bold">
-                                          <Clock className="w-3 h-3" />
+                                        <span className="text-orange-400 font-black text-[8px] sm:text-xs">${recipe.ingredients.reduce((s,i)=>s+i.estimatedCost,0).toFixed(2)}</span>
+                                        <div className="flex items-center gap-1 text-white/60 text-[8px] sm:text-[10px] font-bold">
+                                          <Clock className="w-2 h-2 sm:w-3 sm:h-3" />
                                           20m
                                         </div>
                                       </div>
@@ -1744,9 +1793,10 @@ export default function App() {
               </div>
             </motion.div>
           )}
-        </AnimatePresence>
-      </main>
-    </div>
+            </AnimatePresence>
+          </div>
+        </main>
+      </div>
 
       {/* Finalize Planning Fixed Button */}
       <AnimatePresence>
@@ -1778,37 +1828,37 @@ export default function App() {
       </AnimatePresence>
 
       {/* Bottom Navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-white/80 backdrop-blur-xl border-t border-gray-100 px-8 py-4 flex justify-between lg:hidden items-center z-30 sm:max-w-lg sm:mx-auto sm:left-6 sm:right-6 sm:bottom-6 sm:rounded-[32px] sm:border sm:shadow-2xl sm:shadow-black/10">
+      <nav className="fixed bottom-0 left-0 right-0 bg-white/80 backdrop-blur-xl border-t border-gray-100 px-6 py-2 flex justify-between lg:hidden items-center z-30 sm:max-w-lg sm:mx-auto sm:left-6 sm:right-6 sm:bottom-6 sm:rounded-[32px] sm:border sm:shadow-2xl sm:shadow-black/10">
         <button 
           onClick={() => setView('dashboard')}
-          className={`flex flex-col items-center gap-1 transition-all duration-300 ${view === 'dashboard' ? 'text-orange-500 scale-110' : 'text-gray-400 hover:text-gray-600'}`}
+          className={`flex flex-col items-center gap-0.5 transition-all duration-300 ${view === 'dashboard' ? 'text-orange-500 scale-110' : 'text-gray-400 hover:text-gray-600'}`}
         >
-          <Home className={`w-6 h-6 ${view === 'dashboard' ? 'fill-orange-50' : ''}`} />
-          <span className="text-[10px] font-black uppercase tracking-widest">Inicio</span>
+          <Home className={`w-5 h-5 ${view === 'dashboard' ? 'fill-orange-50' : ''}`} />
+          <span className="text-[8px] font-black uppercase tracking-widest">Inicio</span>
         </button>
         <button 
           onClick={() => {
             setView('calendar');
             setIsShowingCalendarCTA(true);
           }}
-          className={`flex flex-col items-center gap-1 transition-all duration-300 ${view === 'calendar' ? 'text-orange-500 scale-110' : 'text-gray-400 hover:text-gray-600'}`}
+          className={`flex flex-col items-center gap-0.5 transition-all duration-300 ${view === 'calendar' ? 'text-orange-500 scale-110' : 'text-gray-400 hover:text-gray-600'}`}
         >
-          <CalendarIcon className={`w-6 h-6 ${view === 'calendar' ? 'fill-orange-50' : ''}`} />
-          <span className="text-[10px] font-black uppercase tracking-widest">Plan</span>
+          <CalendarIcon className={`w-5 h-5 ${view === 'calendar' ? 'fill-orange-50' : ''}`} />
+          <span className="text-[8px] font-black uppercase tracking-widest">Plan</span>
         </button>
         <button 
           onClick={() => setView('planner')}
-          className={`flex flex-col items-center gap-1 transition-all duration-300 ${view === 'planner' ? 'text-orange-500 scale-110' : 'text-gray-400 hover:text-gray-600'}`}
+          className={`flex flex-col items-center gap-0.5 transition-all duration-300 ${view === 'planner' ? 'text-orange-500 scale-110' : 'text-gray-400 hover:text-gray-600'}`}
         >
-          <Utensils className={`w-6 h-6 ${view === 'planner' ? 'fill-orange-50' : ''}`} />
-          <span className="text-[10px] font-black uppercase tracking-widest">Recetas</span>
+          <Utensils className={`w-5 h-5 ${view === 'planner' ? 'fill-orange-50' : ''}`} />
+          <span className="text-[8px] font-black uppercase tracking-widest">Recetas</span>
         </button>
         <button 
           onClick={() => setView('inventory')}
-          className={`flex flex-col items-center gap-1 transition-all duration-300 ${view === 'inventory' ? 'text-orange-500 scale-110' : 'text-gray-400 hover:text-gray-600'}`}
+          className={`flex flex-col items-center gap-0.5 transition-all duration-300 ${view === 'inventory' ? 'text-orange-500 scale-110' : 'text-gray-400 hover:text-gray-600'}`}
         >
-          <Package className={`w-6 h-6 ${view === 'inventory' ? 'fill-orange-50' : ''}`} />
-          <span className="text-[10px] font-black uppercase tracking-widest">Despensa</span>
+          <Package className={`w-5 h-5 ${view === 'inventory' ? 'fill-orange-50' : ''}`} />
+          <span className="text-[8px] font-black uppercase tracking-widest">Despensa</span>
         </button>
       </nav>
     </div>
