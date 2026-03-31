@@ -18,7 +18,9 @@ import {
   ArrowRight,
   X,
   GripVertical,
-  Edit3
+  Edit3,
+  Star,
+  Heart
 } from 'lucide-react';
 import { RECIPES } from './data';
 import { Recipe, WeeklyPlan, DayOfWeek, MealTime } from './types';
@@ -132,6 +134,47 @@ const SidebarRecipeItem: React.FC<{ recipe: Recipe, onClick: () => void }> = ({ 
 
 export default function App() {
   const [view, setView] = useState<'dashboard' | 'calendar' | 'planner' | 'inventory' | 'setup' | 'recipe-details'>('dashboard');
+  const [previousView, setPreviousView] = useState<'dashboard' | 'calendar' | 'planner' | 'inventory' | 'setup' | 'recipe-details'>('dashboard');
+  const [favorites, setFavorites] = useState<Set<string>>(() => {
+    const saved = localStorage.getItem('favorites');
+    return saved ? new Set(JSON.parse(saved)) : new Set();
+  });
+  const [wishlist, setWishlist] = useState<Set<string>>(() => {
+    const saved = localStorage.getItem('wishlist');
+    return saved ? new Set(JSON.parse(saved)) : new Set();
+  });
+
+  useEffect(() => {
+    localStorage.setItem('favorites', JSON.stringify(Array.from(favorites)));
+  }, [favorites]);
+
+  useEffect(() => {
+    localStorage.setItem('wishlist', JSON.stringify(Array.from(wishlist)));
+  }, [wishlist]);
+
+  const navigateTo = (newView: typeof view) => {
+    setPreviousView(view);
+    setView(newView);
+  };
+
+  const toggleFavorite = (id: string) => {
+    setFavorites(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleWishlist = (id: string) => {
+    setWishlist(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
   const [setupStep, setSetupStep] = useState<'breakfast' | 'lunch' | 'dinner'>('breakfast');
   const [setupSelectedPool, setSetupSelectedPool] = useState<{id: string, category: string}[]>([]);
   const [selectedRecipeForDetails, setSelectedRecipeForDetails] = useState<Recipe | null>(null);
@@ -240,16 +283,21 @@ export default function App() {
       base = base.filter(r => r.category === catMap[selectedSlot.time]);
     }
 
+    if (searchQuery.toLowerCase() === 'favoritos') {
+      base = base.filter(r => favorites.has(r.id));
+    }
+
     return base.filter(recipe => {
       const matchesSearch = recipe.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          recipe.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
                           recipe.ingredients.some(i => i.name.toLowerCase().includes(searchQuery.toLowerCase()));
-      return matchesSearch;
+      return matchesSearch || (searchQuery.toLowerCase() === 'favoritos' && favorites.has(recipe.id));
     }).sort((a, b) => {
       const aMatches = a.ingredients.filter(i => inventory.has(i.name.toLowerCase())).length;
       const bMatches = b.ingredients.filter(i => inventory.has(i.name.toLowerCase())).length;
       return bMatches - aMatches;
     });
-  }, [searchQuery, inventory, view, setupStep, selectedSlot]);
+  }, [searchQuery, inventory, view, setupStep, selectedSlot, favorites]);
 
   const totalCost = useMemo(() => {
     let cost = 0;
@@ -442,7 +490,7 @@ export default function App() {
           )}
         </AnimatePresence>
 
-        <main className={`flex-1 transition-all duration-300 ${view === 'calendar' ? (isPlanComplete && hasFinalizedInitialPlan && !isEditingPlan ? 'max-w-5xl mx-auto' : 'max-w-none') : (view === 'recipe-details' ? 'max-w-7xl mx-auto' : 'max-w-2xl mx-auto')} px-6 py-8`}>
+        <main className={`flex-1 transition-all duration-300 ${view === 'calendar' ? (isPlanComplete && hasFinalizedInitialPlan && !isEditingPlan ? 'max-w-5xl mx-auto' : 'max-w-none') : (view === 'recipe-details' || view === 'planner' ? 'max-w-7xl mx-auto' : 'max-w-2xl mx-auto')} px-6 py-8`}>
           <AnimatePresence mode="wait">
           {view === 'dashboard' && (
             <motion.div
@@ -495,7 +543,7 @@ export default function App() {
                       onClick={() => {
                         if (nextMeal?.recipe) {
                           setSelectedRecipeForDetails(nextMeal.recipe);
-                          setView('recipe-details');
+                          navigateTo('recipe-details');
                         }
                       }}
                       className="flex-1 bg-[#1A1C1E] text-white py-4 rounded-2xl font-black flex items-center justify-center gap-2 hover:bg-black transition-all active:scale-95 shadow-lg shadow-black/10"
@@ -565,7 +613,7 @@ export default function App() {
               {/* Header Navigation */}
               <div className="flex items-center justify-between">
                 <button 
-                  onClick={() => setView('dashboard')}
+                  onClick={() => setView(previousView)}
                   className="group flex items-center gap-2 text-sm font-black uppercase tracking-widest text-gray-400 hover:text-orange-500 transition-colors"
                 >
                   <div className="p-2 bg-white rounded-xl border border-gray-100 shadow-sm group-hover:border-orange-100 transition-colors">
@@ -574,7 +622,17 @@ export default function App() {
                   Volver
                 </button>
                 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-4">
+                  <button 
+                    onClick={() => toggleFavorite(selectedRecipeForDetails.id)}
+                    className={`p-3 rounded-2xl border transition-all ${
+                      favorites.has(selectedRecipeForDetails.id) 
+                        ? 'bg-orange-500 border-orange-500 text-white shadow-lg shadow-orange-500/20' 
+                        : 'bg-white border-gray-100 text-gray-400 hover:text-orange-500'
+                    }`}
+                  >
+                    <Star className={`w-5 h-5 ${favorites.has(selectedRecipeForDetails.id) ? 'fill-current' : ''}`} />
+                  </button>
                   <span className="bg-orange-50 text-orange-600 text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest">
                     {selectedRecipeForDetails.category}
                   </span>
@@ -683,16 +741,36 @@ export default function App() {
                     </div>
 
                     <div className="pt-10">
-                      <button 
-                        onClick={() => {
-                          handleCook();
-                          setView('dashboard');
-                        }}
-                        className="w-full bg-[#1A1C1E] text-white py-4 sm:py-6 rounded-[20px] sm:rounded-[24px] font-black flex items-center justify-center gap-3 sm:gap-4 hover:bg-black transition-all active:scale-[0.98] shadow-2xl shadow-black/20 group"
-                      >
-                        <span className="text-sm sm:text-lg">Marcar como cocinado</span>
-                        <CheckCircle2 className="w-5 h-5 sm:w-6 sm:h-6 text-orange-500 group-hover:scale-125 transition-transform" />
-                      </button>
+                      {Object.values(weeklyPlan).some(day => Object.values(day).includes(selectedRecipeForDetails.id)) ? (
+                        <button 
+                          onClick={() => {
+                            handleCook();
+                            setView('dashboard');
+                          }}
+                          className="w-full bg-[#1A1C1E] text-white py-4 sm:py-6 rounded-[20px] sm:rounded-[24px] font-black flex items-center justify-center gap-3 sm:gap-4 hover:bg-black transition-all active:scale-[0.98] shadow-2xl shadow-black/20 group"
+                        >
+                          <span className="text-sm sm:text-lg">Marcar como cocinado</span>
+                          <CheckCircle2 className="w-5 h-5 sm:w-6 sm:h-6 text-orange-500 group-hover:scale-125 transition-transform" />
+                        </button>
+                      ) : (
+                        <button 
+                          onClick={() => toggleWishlist(selectedRecipeForDetails.id)}
+                          className={`w-full py-4 sm:py-6 rounded-[20px] sm:rounded-[24px] font-black flex items-center justify-center gap-3 sm:gap-4 transition-all active:scale-[0.98] shadow-2xl group ${
+                            wishlist.has(selectedRecipeForDetails.id)
+                              ? 'bg-green-500 text-white shadow-green-500/20 hover:bg-green-600'
+                              : 'bg-orange-500 text-white shadow-orange-500/20 hover:bg-orange-600'
+                          }`}
+                        >
+                          <span className="text-sm sm:text-lg">
+                            {wishlist.has(selectedRecipeForDetails.id) ? 'En lista para el próximo plan' : 'Cocinar próximamente'}
+                          </span>
+                          {wishlist.has(selectedRecipeForDetails.id) ? (
+                            <CheckCircle2 className="w-5 h-5 sm:w-6 sm:h-6 text-white group-hover:scale-125 transition-transform" />
+                          ) : (
+                            <Plus className="w-5 h-5 sm:w-6 sm:h-6 text-white group-hover:scale-125 transition-transform" />
+                          )}
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -1001,106 +1079,300 @@ export default function App() {
           {view === 'planner' && (
             <motion.div
               key="planner"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              className="space-y-6"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="space-y-10"
             >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <button 
-                    onClick={() => {
-                      if (selectedSlot) {
-                        setSelectedSlot(null);
-                        setView('calendar');
-                      } else {
-                        setView('dashboard');
-                      }
-                    }}
-                    className="p-2 bg-white rounded-xl border border-gray-100 text-gray-400 hover:text-gray-600 shadow-sm"
-                  >
-                    <ArrowRight className="w-4 h-4 rotate-180" />
-                  </button>
-                  <div>
-                    <h2 className="text-xl font-black tracking-tight">
-                      {selectedSlot ? `Elegir para ${selectedSlot.day}` : 'Todas las Recetas'}
+              <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+                <div className="space-y-2">
+                  <div className="flex items-center gap-3">
+                    <button 
+                      onClick={() => {
+                        if (selectedSlot) {
+                          setSelectedSlot(null);
+                          setView('calendar');
+                        } else {
+                          setView('dashboard');
+                        }
+                      }}
+                      className="p-2 bg-white rounded-xl border border-gray-100 text-gray-400 hover:text-orange-500 shadow-sm transition-colors"
+                    >
+                      <ArrowRight className="w-4 h-4 rotate-180" />
+                    </button>
+                    <h2 className="text-4xl font-black tracking-tighter">
+                      {selectedSlot ? `Elegir para ${selectedSlot.day}` : 'Explorar Recetas'}
                     </h2>
-                    {selectedSlot && (
-                      <p className="text-[10px] text-orange-500 font-bold uppercase tracking-widest">{selectedSlot.time}</p>
-                    )}
+                  </div>
+                  <p className="text-gray-500 font-medium">
+                    {selectedSlot ? `Selecciona el mejor ${selectedSlot.time} para tu día` : 'Descubre nuevas ideas para tu menú semanal'}
+                  </p>
+                </div>
+
+                <div className="flex flex-col sm:flex-row gap-3 flex-1 max-w-xl">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <input 
+                      type="text"
+                      placeholder="Busca por ingrediente o nombre..."
+                      className="w-full bg-white border border-gray-200 rounded-2xl py-3.5 pl-12 pr-4 text-sm focus:outline-none focus:ring-4 focus:ring-orange-500/10 shadow-sm transition-all"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                    />
                   </div>
                 </div>
               </div>
 
-              {/* Search & Filter */}
-              <div className="space-y-4">
-                <div className="relative">
-                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                  <input 
-                    type="text"
-                    placeholder="Busca por ingrediente o nombre..."
-                    className="w-full bg-white border border-gray-200 rounded-2xl py-4 pl-12 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20 shadow-sm"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                  />
-                </div>
-                
-                <div className="flex gap-2 overflow-x-auto no-scrollbar">
+              {/* Quick Filters */}
+              <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2">
+                <button 
+                  onClick={() => setSearchQuery('')}
+                  className={`flex-shrink-0 px-6 py-2.5 rounded-full text-xs font-black uppercase tracking-widest border transition-all ${
+                    searchQuery === '' ? 'bg-[#1A1C1E] text-white border-[#1A1C1E] shadow-xl' : 'bg-white text-gray-400 border-gray-100 hover:border-orange-200'
+                  }`}
+                >
+                  Todas
+                </button>
+                <button 
+                  onClick={() => setSearchQuery('favoritos')}
+                  className={`flex-shrink-0 px-6 py-2.5 rounded-full text-xs font-black uppercase tracking-widest border transition-all ${
+                    searchQuery.toLowerCase() === 'favoritos' ? 'bg-orange-500 text-white border-orange-500 shadow-xl shadow-orange-500/20' : 'bg-white text-gray-400 border-gray-100 hover:border-orange-200'
+                  }`}
+                >
+                  Favoritos
+                </button>
+                {['Breakfast', 'Lunch', 'Dinner'].map(cat => (
                   <button 
-                    onClick={() => setSearchQuery('')}
-                    className={`flex-shrink-0 px-4 py-2 rounded-full text-xs font-bold border transition-all ${
-                      searchQuery === '' ? 'bg-orange-500 text-white border-orange-500 shadow-lg shadow-orange-500/20' : 'bg-white text-gray-500 border-gray-200'
+                    key={cat}
+                    onClick={() => setSearchQuery(cat)}
+                    className={`flex-shrink-0 px-6 py-2.5 rounded-full text-xs font-black uppercase tracking-widest border transition-all ${
+                      searchQuery.toLowerCase() === cat.toLowerCase() ? 'bg-orange-500 text-white border-orange-500 shadow-xl shadow-orange-500/20' : 'bg-white text-gray-400 border-gray-100 hover:border-orange-200'
                     }`}
                   >
-                    Todos
+                    {cat === 'Breakfast' ? 'Desayunos' : cat === 'Lunch' ? 'Almuerzos' : 'Cenas'}
                   </button>
-                  {Array.from(inventory).map((ing: any) => (
-                    <button 
-                      key={ing}
-                      onClick={() => setSearchQuery(ing)}
-                      className={`flex-shrink-0 px-4 py-2 rounded-full text-xs font-bold border transition-all ${
-                        searchQuery.toLowerCase() === (ing as string).toLowerCase() ? 'bg-green-500 text-white border-green-500 shadow-lg shadow-green-500/20' : 'bg-white text-gray-500 border-gray-200'
-                      }`}
-                    >
-                      Usar {ing}
-                    </button>
-                  ))}
-                </div>
+                ))}
               </div>
 
-              {/* Recipe Grid */}
-              <div className="grid gap-4">
-                {filteredRecipes.length > 0 ? (
-                  filteredRecipes.map(recipe => {
-                    const matchCount = recipe.ingredients.filter(i => inventory.has(i.name.toLowerCase())).length;
-                    return (
-                      <div 
-                        key={recipe.id}
-                        onClick={() => handleSelectRecipe(recipe.id)}
-                        className="bg-white rounded-2xl p-3 border border-gray-100 flex gap-4 cursor-pointer hover:border-orange-200 transition-all active:scale-[0.98] shadow-sm"
-                      >
-                        <img src={recipe.image} className="w-20 h-20 rounded-xl object-cover" referrerPolicy="no-referrer" />
-                        <div className="flex-1 py-1">
-                          <div className="flex justify-between items-start">
-                            <h4 className="font-bold text-sm">{recipe.name}</h4>
-                            <span className="text-[10px] font-bold text-gray-400">${recipe.ingredients.reduce((s,i)=>s+i.estimatedCost,0).toFixed(2)}</span>
-                          </div>
-                          <p className="text-[10px] text-gray-500 line-clamp-1 mb-2">{recipe.description}</p>
-                          {matchCount > 0 && (
-                            <span className="bg-green-50 text-green-700 text-[8px] font-black px-2 py-0.5 rounded-full border border-green-100">
-                              TIENES {matchCount} INGREDIENTES
-                            </span>
-                          )}
+              {/* Search & Hero / Grid */}
+              <div className="space-y-12">
+                {searchQuery === '' ? (
+                  <>
+                    {/* Featured Hero */}
+                    <motion.div 
+                      initial={{ opacity: 0, scale: 0.95 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      className="relative h-[400px] rounded-[40px] overflow-hidden shadow-2xl group cursor-pointer"
+                      onClick={() => {
+                        const featured = RECIPES[0];
+                        if (selectedSlot) {
+                          handleSelectRecipe(featured.id);
+                        } else {
+                          setSelectedRecipeForDetails(featured);
+                          navigateTo('recipe-details');
+                        }
+                      }}
+                    >
+                      <img 
+                        src={RECIPES[0].image} 
+                        className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105" 
+                        referrerPolicy="no-referrer"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/40 to-transparent" />
+                      <div className="absolute inset-0 flex flex-col justify-center p-12 space-y-6 max-w-2xl">
+                        <div className="flex items-center gap-2">
+                          <span className="bg-orange-500 text-white text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest">
+                            Destacado
+                          </span>
+                          <span className="text-white/60 text-[10px] font-black uppercase tracking-widest">
+                            • {RECIPES[0].category}
+                          </span>
+                        </div>
+                        <h3 className="text-6xl font-black text-white tracking-tighter leading-none">
+                          {RECIPES[0].name}
+                        </h3>
+                        <p className="text-white/70 text-lg font-medium line-clamp-2">
+                          {RECIPES[0].description}
+                        </p>
+                        <div className="flex items-center gap-4 pt-4">
+                          <button className="bg-white text-black px-8 py-4 rounded-2xl font-black text-sm uppercase tracking-widest hover:bg-orange-500 hover:text-white transition-all flex items-center gap-2">
+                            {selectedSlot ? 'Seleccionar' : 'Ver Detalles'}
+                            <ArrowRight className="w-4 h-4" />
+                          </button>
                         </div>
                       </div>
-                    );
-                  })
+                    </motion.div>
+
+                    {/* Category Rows */}
+                    {['Breakfast', 'Lunch', 'Dinner'].map(category => {
+                      const categoryRecipes = RECIPES.filter(r => r.category === category);
+                      if (categoryRecipes.length === 0) return null;
+                      
+                      return (
+                        <div key={category} className="space-y-6">
+                          <div className="flex items-center justify-between px-2">
+                            <h3 className="text-2xl font-black tracking-tight">
+                              {category === 'Breakfast' ? 'Desayunos Energéticos' : category === 'Lunch' ? 'Almuerzos Saludables' : 'Cenas Ligeras'}
+                            </h3>
+                            <button 
+                              onClick={() => setSearchQuery(category)}
+                              className="text-orange-500 font-black text-xs uppercase tracking-widest hover:underline"
+                            >
+                              Ver Todo
+                            </button>
+                          </div>
+                          
+                          <div className="flex gap-6 overflow-x-auto no-scrollbar pb-8 px-2 -mx-2">
+                            {categoryRecipes.map(recipe => {
+                              const matchCount = recipe.ingredients.filter(i => inventory.has(i.name.toLowerCase())).length;
+                              return (
+                                <motion.div 
+                                  key={recipe.id}
+                                  whileHover={{ scale: 1.05, zIndex: 10 }}
+                                  onClick={() => {
+                                    if (selectedSlot) {
+                                      handleSelectRecipe(recipe.id);
+                                    } else {
+                                      setSelectedRecipeForDetails(recipe);
+                                      navigateTo('recipe-details');
+                                    }
+                                  }}
+                                  className="flex-shrink-0 w-[240px] group cursor-pointer"
+                                >
+                                  <div className="relative aspect-[2/3] rounded-[24px] overflow-hidden shadow-lg transition-all duration-300 group-hover:shadow-2xl">
+                                    <img 
+                                      src={recipe.image} 
+                                      className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" 
+                                      referrerPolicy="no-referrer" 
+                                    />
+                                    <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent opacity-80 group-hover:opacity-100 transition-opacity" />
+                                    
+                                    <div className="absolute top-3 left-3 flex items-center gap-2">
+                                      {matchCount > 0 && (
+                                        <div className="bg-green-500 text-white p-1.5 rounded-full shadow-lg">
+                                          <CheckCircle2 className="w-3 h-3" />
+                                        </div>
+                                      )}
+                                      {favorites.has(recipe.id) && (
+                                        <div className="bg-orange-500 text-white p-1.5 rounded-full shadow-lg">
+                                          <Star className="w-3 h-3 fill-current" />
+                                        </div>
+                                      )}
+                                    </div>
+
+                                    <div className="absolute bottom-0 left-0 right-0 p-5 space-y-2">
+                                      <h4 className="text-white font-black text-sm leading-tight group-hover:text-orange-400 transition-colors line-clamp-2">
+                                        {recipe.name}
+                                      </h4>
+                                      <div className="flex items-center justify-between">
+                                        <span className="text-orange-400 font-black text-xs">${recipe.ingredients.reduce((s,i)=>s+i.estimatedCost,0).toFixed(2)}</span>
+                                        <div className="flex items-center gap-1 text-white/60 text-[10px] font-bold">
+                                          <Clock className="w-3 h-3" />
+                                          20m
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </motion.div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </>
                 ) : (
-                  <div className="py-12 text-center space-y-4">
-                    <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto">
-                      <Search className="w-8 h-8 text-gray-200" />
+                  /* Search Results Grid */
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+                    {filteredRecipes.map(recipe => {
+                      const matchCount = recipe.ingredients.filter(i => inventory.has(i.name.toLowerCase())).length;
+                      return (
+                        <motion.div 
+                          layout
+                          key={recipe.id}
+                          onClick={() => {
+                            if (selectedSlot) {
+                              handleSelectRecipe(recipe.id);
+                            } else {
+                              setSelectedRecipeForDetails(recipe);
+                              navigateTo('recipe-details');
+                            }
+                          }}
+                          className="group relative cursor-pointer"
+                        >
+                          <div className="relative aspect-[2/3] rounded-[24px] overflow-hidden shadow-lg transition-all duration-500 group-hover:shadow-2xl group-hover:-translate-y-2">
+                            <img 
+                              src={recipe.image} 
+                              className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" 
+                              referrerPolicy="no-referrer" 
+                            />
+                            
+                            {/* Overlay Gradient */}
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent opacity-80 group-hover:opacity-100 transition-opacity" />
+                            
+                            {/* Badges */}
+                            <div className="absolute top-3 left-3 right-3 flex justify-between items-start">
+                              <div className="flex items-center gap-2">
+                                <span className="bg-white/20 backdrop-blur-md text-white text-[8px] font-black px-2 py-1 rounded-lg uppercase tracking-widest border border-white/10">
+                                  {recipe.category}
+                                </span>
+                                {favorites.has(recipe.id) && (
+                                  <div className="bg-orange-500 text-white p-1 rounded-lg shadow-lg">
+                                    <Star className="w-2.5 h-2.5 fill-current" />
+                                  </div>
+                                )}
+                              </div>
+                              {matchCount > 0 && (
+                                <div className="bg-green-500 text-white p-1.5 rounded-full shadow-lg">
+                                  <CheckCircle2 className="w-3 h-3" />
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Content */}
+                            <div className="absolute bottom-0 left-0 right-0 p-5 space-y-2">
+                              <div className="flex items-center justify-between gap-2">
+                                <h4 className="text-white font-black text-sm leading-tight group-hover:text-orange-400 transition-colors line-clamp-2">
+                                  {recipe.name}
+                                </h4>
+                              </div>
+                              
+                              <div className="flex items-center justify-between">
+                                <span className="text-orange-400 font-black text-xs">${recipe.ingredients.reduce((s,i)=>s+i.estimatedCost,0).toFixed(2)}</span>
+                                <div className="flex items-center gap-1 text-white/60 text-[10px] font-bold">
+                                  <Clock className="w-3 h-3" />
+                                  20m
+                                </div>
+                              </div>
+
+                              {matchCount > 0 && (
+                                <p className="text-[8px] font-black text-green-400 uppercase tracking-widest pt-1">
+                                  {matchCount} ingredientes en despensa
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        </motion.div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {filteredRecipes.length === 0 && searchQuery !== '' && (
+                  <div className="py-24 text-center space-y-6 bg-white rounded-[40px] border-2 border-dashed border-gray-100">
+                    <div className="w-24 h-24 bg-gray-50 rounded-full flex items-center justify-center mx-auto">
+                      <Search className="w-10 h-10 text-gray-200" />
                     </div>
-                    <p className="text-sm text-gray-400 font-medium">No encontramos recetas con esos criterios.</p>
+                    <div className="space-y-2">
+                      <h3 className="text-xl font-black tracking-tight">No se encontraron recetas</h3>
+                      <p className="text-sm text-gray-400 font-medium max-w-xs mx-auto">Prueba buscando por otro ingrediente o limpia los filtros.</p>
+                    </div>
+                    <button 
+                      onClick={() => setSearchQuery('')}
+                      className="text-orange-500 font-black text-xs uppercase tracking-widest hover:underline"
+                    >
+                      Ver todas las recetas
+                    </button>
                   </div>
                 )}
               </div>
