@@ -34,3 +34,11 @@ export interface InventoryItem {
   amount: number;
   unit: string;
 }
+
+export interface SavedPlan {
+  id: string;
+  title: string;
+  description: string;
+  plan: WeeklyPlan;
+  createdAt: string;
+}

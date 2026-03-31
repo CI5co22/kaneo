@@ -20,10 +20,12 @@ import {
   GripVertical,
   Edit3,
   Star,
-  Heart
+  Heart,
+  Save,
+  FolderOpen
 } from 'lucide-react';
 import { RECIPES } from './data';
-import { Recipe, WeeklyPlan, DayOfWeek, MealTime } from './types';
+import { Recipe, WeeklyPlan, DayOfWeek, MealTime, SavedPlan } from './types';
 
 const DAYS: DayOfWeek[] = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
 const MEALS: MealTime[] = ['Desayuno', 'Almuerzo', 'Cena'];
@@ -170,8 +172,8 @@ const SidebarNavItem: React.FC<{ icon: any, label: string, active: boolean, onCl
 );
 
 export default function App() {
-  const [view, setView] = useState<'dashboard' | 'calendar' | 'planner' | 'inventory' | 'setup' | 'recipe-details'>('dashboard');
-  const [previousView, setPreviousView] = useState<'dashboard' | 'calendar' | 'planner' | 'inventory' | 'setup' | 'recipe-details'>('dashboard');
+  const [view, setView] = useState<'dashboard' | 'calendar' | 'planner' | 'inventory' | 'setup' | 'recipe-details' | 'saved-plans'>('dashboard');
+  const [previousView, setPreviousView] = useState<'dashboard' | 'calendar' | 'planner' | 'inventory' | 'setup' | 'recipe-details' | 'saved-plans'>('dashboard');
   const [favorites, setFavorites] = useState<Set<string>>(() => {
     const saved = localStorage.getItem('favorites');
     return saved ? new Set(JSON.parse(saved)) : new Set();
@@ -216,6 +218,52 @@ export default function App() {
   const [setupSelectedPool, setSetupSelectedPool] = useState<{id: string, category: string}[]>([]);
   const [selectedRecipeForDetails, setSelectedRecipeForDetails] = useState<Recipe | null>(null);
   const [selectedRecipeForModal, setSelectedRecipeForModal] = useState<Recipe | null>(null);
+  const [savedPlans, setSavedPlans] = useState<SavedPlan[]>(() => {
+    const saved = localStorage.getItem('savedPlans');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [isSavingPlanModalOpen, setIsSavingPlanModalOpen] = useState(false);
+  const [newPlanTitle, setNewPlanTitle] = useState('');
+  const [newPlanDescription, setNewPlanDescription] = useState('');
+  const [editingSavedPlan, setEditingSavedPlan] = useState<SavedPlan | null>(null);
+
+  useEffect(() => {
+    localStorage.setItem('savedPlans', JSON.stringify(savedPlans));
+  }, [savedPlans]);
+
+  const handleSaveCurrentPlan = () => {
+    if (editingSavedPlan) {
+      setSavedPlans(prev => prev.map(p => p.id === editingSavedPlan.id ? {
+        ...p,
+        title: newPlanTitle,
+        description: newPlanDescription
+      } : p));
+      setEditingSavedPlan(null);
+    } else {
+      const newPlan: SavedPlan = {
+        id: Date.now().toString(),
+        title: newPlanTitle,
+        description: newPlanDescription,
+        plan: JSON.parse(JSON.stringify(weeklyPlan)),
+        createdAt: new Date().toISOString()
+      };
+      setSavedPlans(prev => [newPlan, ...prev]);
+    }
+    setIsSavingPlanModalOpen(false);
+    setNewPlanTitle('');
+    setNewPlanDescription('');
+  };
+
+  const loadSavedPlan = (savedPlan: SavedPlan) => {
+    setWeeklyPlan(JSON.parse(JSON.stringify(savedPlan.plan)));
+    setHasFinalizedInitialPlan(true);
+    setIsEditingPlan(false);
+    setView('calendar');
+  };
+
+  const deleteSavedPlan = (id: string) => {
+    setSavedPlans(prev => prev.filter(p => p.id !== id));
+  };
 
   const [isReselectingPool, setIsReselectingPool] = useState(false);
   const [hasReachedCalendarOnce, setHasReachedCalendarOnce] = useState(false);
@@ -458,6 +506,12 @@ export default function App() {
             active={view === 'inventory'} 
             onClick={() => setView('inventory')} 
           />
+          <SidebarNavItem 
+            icon={FolderOpen} 
+            label="Mis Planes" 
+            active={view === 'saved-plans'} 
+            onClick={() => setView('saved-plans')} 
+          />
         </nav>
 
         {/* Wallet Info */}
@@ -502,9 +556,17 @@ export default function App() {
           </div>
           <span className="font-bold text-base sm:text-lg tracking-tight">StudentPlan</span>
         </div>
-        <div className="flex items-center gap-2 bg-gray-50 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-full border border-gray-100">
-          <Wallet className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gray-500" />
-          <span className="text-[10px] sm:text-xs font-bold text-gray-600">${totalCost.toFixed(2)}</span>
+        <div className="flex items-center gap-2">
+          <button 
+            onClick={() => setView('saved-plans')}
+            className="p-2 text-gray-400 hover:text-orange-500 transition-colors"
+          >
+            <FolderOpen className="w-5 h-5" />
+          </button>
+          <div className="flex items-center gap-2 bg-gray-50 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-full border border-gray-100">
+            <Wallet className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gray-500" />
+            <span className="text-[10px] sm:text-xs font-bold text-gray-600">${totalCost.toFixed(2)}</span>
+          </div>
         </div>
       </header>
 
@@ -1284,26 +1346,35 @@ export default function App() {
                         : 'Continúa donde lo dejaste para terminar tu planificación.'}
                     </p>
                   </div>
-                  <button 
-                    onClick={() => {
-                      if (setupSelectedPool.length === 0) {
-                        setView('setup');
-                        setSetupStep('breakfast');
-                        setIsShowingCalendarCTA(false);
-                      } else {
-                        if (hasReachedCalendarOnce) {
+                  <div className="flex flex-col sm:flex-row gap-4">
+                    <button 
+                      onClick={() => {
+                        if (setupSelectedPool.length === 0) {
+                          setView('setup');
+                          setSetupStep('breakfast');
                           setIsShowingCalendarCTA(false);
                         } else {
-                          setView('setup');
-                          setIsShowingCalendarCTA(false);
+                          if (hasReachedCalendarOnce) {
+                            setIsShowingCalendarCTA(false);
+                          } else {
+                            setView('setup');
+                            setIsShowingCalendarCTA(false);
+                          }
                         }
-                      }
-                    }}
-                    className="inline-flex items-center gap-3 bg-orange-500 text-white px-8 py-4 rounded-2xl font-black text-sm shadow-lg shadow-orange-500/30 hover:scale-105 transition-transform active:scale-95"
-                  >
-                    {setupSelectedPool.length === 0 ? 'Crear Plan Semanal' : 'Continuar Planificación'}
-                    <ArrowRight className="w-4 h-4" />
-                  </button>
+                      }}
+                      className="flex-1 inline-flex items-center justify-center gap-3 bg-orange-500 text-white px-8 py-4 rounded-2xl font-black text-sm shadow-lg shadow-orange-500/30 hover:scale-105 transition-transform active:scale-95"
+                    >
+                      {setupSelectedPool.length === 0 ? 'Crear Plan Semanal' : 'Continuar Planificación'}
+                      <ArrowRight className="w-4 h-4" />
+                    </button>
+                    <button 
+                      onClick={() => setView('saved-plans')}
+                      className="flex-1 inline-flex items-center justify-center gap-3 bg-white border border-gray-200 text-gray-600 px-8 py-4 rounded-2xl font-black text-sm hover:bg-gray-50 transition-all active:scale-95 shadow-sm"
+                    >
+                      <FolderOpen className="w-4 h-4 text-orange-500" />
+                      Ver Planes Guardados
+                    </button>
+                  </div>
                 </div>
               ) : (
                 <>
@@ -1323,18 +1394,41 @@ export default function App() {
                       </div>
                     </div>
 
-                    {isPlanComplete && hasFinalizedInitialPlan && !isEditingPlan && (
-                      <button 
-                        onClick={() => {
-                          setIsEditingPlan(true);
-                          setActiveDay(getCurrentDay());
-                        }}
-                        className="flex items-center gap-2 bg-white border border-gray-200 px-6 py-3 rounded-2xl font-black text-sm hover:bg-gray-50 transition-all active:scale-95 shadow-sm"
-                      >
-                        <Edit3 className="w-4 h-4 text-orange-500" />
-                        Editar Plan
-                      </button>
-                    )}
+                    <div className="flex items-center gap-2 sm:gap-4">
+                      {isPlanComplete && hasFinalizedInitialPlan && !isEditingPlan && (
+                        <>
+                          <button 
+                            onClick={() => setView('saved-plans')}
+                            className="p-3 bg-white border border-gray-100 rounded-2xl shadow-sm text-gray-400 hover:text-orange-500 transition-colors"
+                            title="Planes Guardados"
+                          >
+                            <FolderOpen className="w-5 h-5" />
+                          </button>
+                          <button 
+                            onClick={() => {
+                              setEditingSavedPlan(null);
+                              setNewPlanTitle('');
+                              setNewPlanDescription('');
+                              setIsSavingPlanModalOpen(true);
+                            }}
+                            className="flex items-center gap-2 bg-white border border-gray-200 px-4 sm:px-6 py-3 rounded-2xl font-black text-sm hover:bg-gray-50 transition-all active:scale-95 shadow-sm"
+                          >
+                            <Save className="w-4 h-4 text-orange-500" />
+                            <span className="hidden sm:inline">Guardar Plan</span>
+                          </button>
+                          <button 
+                            onClick={() => {
+                              setIsEditingPlan(true);
+                              setActiveDay(getCurrentDay());
+                            }}
+                            className="flex items-center gap-2 bg-white border border-gray-200 px-4 sm:px-6 py-3 rounded-2xl font-black text-sm hover:bg-gray-50 transition-all active:scale-95 shadow-sm"
+                          >
+                            <Edit3 className="w-4 h-4 text-orange-500" />
+                            <span className="hidden sm:inline">Editar Plan</span>
+                          </button>
+                        </>
+                      )}
+                    </div>
                   </div>
 
                   <div className="bg-white rounded-[30px] sm:rounded-[40px] p-4 sm:p-8 border border-gray-100 shadow-xl shadow-gray-200/50 overflow-x-auto no-scrollbar">
@@ -1768,6 +1862,127 @@ export default function App() {
             </motion.div>
           )}
 
+          {view === 'saved-plans' && (
+            <motion.div
+              key="saved-plans"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              className="space-y-6 sm:space-y-10 h-full overflow-y-auto no-scrollbar pb-20"
+            >
+              <div className="flex items-center justify-between">
+                <div className="space-y-2">
+                  <h2 className="text-3xl font-black tracking-tight">Mis Planes Guardados</h2>
+                  <p className="text-gray-500 font-medium">Reutiliza tus mejores combinaciones semanales</p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <button 
+                    onClick={() => {
+                      setEditingSavedPlan(null);
+                      setNewPlanTitle('');
+                      setNewPlanDescription('');
+                      setIsSavingPlanModalOpen(true);
+                    }}
+                    className="p-3 bg-white border border-gray-100 rounded-2xl shadow-sm text-gray-400 hover:text-orange-500 transition-colors"
+                  >
+                    <Save className="w-5 h-5" />
+                  </button>
+                  <button 
+                    onClick={() => setView('calendar')}
+                    className="p-3 bg-white border border-gray-100 rounded-2xl shadow-sm text-gray-400 hover:text-orange-500 transition-colors"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+
+              {savedPlans.length === 0 ? (
+                <div className="py-24 text-center space-y-6 bg-white rounded-[40px] border-2 border-dashed border-gray-100">
+                  <div className="w-24 h-24 bg-gray-50 rounded-full flex items-center justify-center mx-auto">
+                    <FolderOpen className="w-10 h-10 text-gray-200" />
+                  </div>
+                  <div className="space-y-2">
+                    <h3 className="text-xl font-black tracking-tight">No tienes planes guardados</h3>
+                    <p className="text-sm text-gray-400 font-medium max-w-xs mx-auto">Guarda tus planes actuales para verlos aquí más tarde.</p>
+                  </div>
+                  <button 
+                    onClick={() => setView('calendar')}
+                    className="inline-flex items-center gap-3 bg-orange-500 text-white px-8 py-4 rounded-2xl font-black text-sm shadow-lg shadow-orange-500/30 hover:scale-105 transition-transform active:scale-95"
+                  >
+                    Ir a mi Plan Actual
+                    <ArrowRight className="w-4 h-4" />
+                  </button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {savedPlans.map(savedPlan => (
+                    <motion.div 
+                      key={savedPlan.id}
+                      layout
+                      className="bg-white rounded-[32px] p-6 border border-gray-100 shadow-xl shadow-gray-200/50 space-y-4 group relative"
+                    >
+                      <div className="space-y-1">
+                        <h3 className="text-xl font-black tracking-tight group-hover:text-orange-500 transition-colors">
+                          {savedPlan.title}
+                        </h3>
+                        <p className="text-sm text-gray-400 font-medium line-clamp-2">
+                          {savedPlan.description || 'Sin descripción'}
+                        </p>
+                      </div>
+
+                      <div className="flex items-center gap-4 py-2">
+                        <div className="flex -space-x-2">
+                          {(Object.values(savedPlan.plan) as Record<MealTime, string | null>[]).slice(0, 3).map((day, idx) => {
+                            const recipeId = day.Almuerzo || day.Cena || day.Desayuno;
+                            const recipe = RECIPES.find(r => r.id === recipeId);
+                            if (!recipe) return null;
+                            return (
+                              <img 
+                                key={idx}
+                                src={recipe.image}
+                                className="w-8 h-8 rounded-full border-2 border-white object-cover"
+                                referrerPolicy="no-referrer"
+                              />
+                            );
+                          })}
+                        </div>
+                        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                          {new Date(savedPlan.createdAt).toLocaleDateString()}
+                        </span>
+                      </div>
+
+                      <div className="flex gap-2 pt-2">
+                        <button 
+                          onClick={() => loadSavedPlan(savedPlan)}
+                          className="flex-1 bg-orange-500 text-white py-3 rounded-xl font-black text-xs shadow-lg shadow-orange-500/20 hover:bg-orange-600 transition-all active:scale-95"
+                        >
+                          Cargar Plan
+                        </button>
+                        <button 
+                          onClick={() => {
+                            setEditingSavedPlan(savedPlan);
+                            setNewPlanTitle(savedPlan.title);
+                            setNewPlanDescription(savedPlan.description);
+                            setIsSavingPlanModalOpen(true);
+                          }}
+                          className="p-3 bg-gray-50 text-gray-400 hover:text-orange-500 hover:bg-orange-50 rounded-xl transition-all"
+                        >
+                          <Edit3 className="w-4 h-4" />
+                        </button>
+                        <button 
+                          onClick={() => deleteSavedPlan(savedPlan.id)}
+                          className="p-3 bg-gray-50 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
+              )}
+            </motion.div>
+          )}
+
           {view === 'inventory' && (
             <motion.div
               key="inventory"
@@ -1905,6 +2120,76 @@ export default function App() {
           <span className="text-[8px] font-black uppercase tracking-widest">Despensa</span>
         </button>
       </nav>
+
+      {/* Save Plan Modal */}
+      <AnimatePresence>
+        {isSavingPlanModalOpen && (
+          <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 sm:p-6">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsSavingPlanModalOpen(false)}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="relative w-full max-w-lg bg-white rounded-[32px] overflow-hidden shadow-2xl p-8 space-y-6"
+            >
+              <div className="space-y-2">
+                <h2 className="text-2xl font-black tracking-tight">
+                  {editingSavedPlan ? 'Editar Plan Guardado' : 'Guardar Plan Actual'}
+                </h2>
+                <p className="text-gray-500 font-medium">
+                  {editingSavedPlan ? 'Actualiza el título y la descripción de tu plan.' : 'Dale un nombre a tu plan para usarlo más adelante.'}
+                </p>
+              </div>
+
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Título del Plan</label>
+                  <input 
+                    type="text"
+                    placeholder="Ej: Dieta Mediterránea, Semana de Volumen..."
+                    className="w-full bg-gray-50 border border-gray-100 rounded-2xl py-4 px-6 text-sm focus:outline-none focus:ring-4 focus:ring-orange-500/10 transition-all font-bold"
+                    value={newPlanTitle}
+                    onChange={(e) => setNewPlanTitle(e.target.value)}
+                    autoFocus
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Descripción (Opcional)</label>
+                  <textarea 
+                    placeholder="Breve descripción de este plan..."
+                    rows={3}
+                    className="w-full bg-gray-50 border border-gray-100 rounded-2xl py-4 px-6 text-sm focus:outline-none focus:ring-4 focus:ring-orange-500/10 transition-all font-bold resize-none"
+                    value={newPlanDescription}
+                    onChange={(e) => setNewPlanDescription(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button 
+                  onClick={() => setIsSavingPlanModalOpen(false)}
+                  className="flex-1 py-4 rounded-2xl font-black text-sm text-gray-500 bg-gray-100 hover:bg-gray-200 transition-all active:scale-95"
+                >
+                  Cancelar
+                </button>
+                <button 
+                  onClick={handleSaveCurrentPlan}
+                  disabled={!newPlanTitle.trim()}
+                  className="flex-[2] py-4 rounded-2xl font-black text-sm text-white bg-orange-500 shadow-xl shadow-orange-500/20 hover:bg-orange-600 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {editingSavedPlan ? 'Guardar Cambios' : 'Confirmar y Guardar'}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* Recipe Details Modal */}
       <AnimatePresence>
