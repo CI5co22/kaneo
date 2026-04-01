@@ -180,9 +180,9 @@ const SidebarNavItem: React.FC<{ icon: any, label: string, active: boolean, onCl
 
 export default function App() {
   const { user, loginWithGoogle, logout, loading: authLoading } = useAuth();
-  
+
   // --- STATE DECLARATIONS ---
-  
+
   // Navigation & View Management
   const [view, setView] = useState<'dashboard' | 'calendar' | 'planner' | 'inventory' | 'setup' | 'recipe-details' | 'saved-plans' | 'shopping-list'>('dashboard');
   const [previousView, setPreviousView] = useState<'dashboard' | 'calendar' | 'planner' | 'inventory' | 'setup' | 'recipe-details' | 'saved-plans' | 'shopping-list'>('dashboard');
@@ -202,7 +202,7 @@ export default function App() {
   });
   const [cookedMeals, setCookedMeals] = useState<Set<string>>(new Set());
   const [savedPlans, setSavedPlans] = useState<SavedPlan[]>([]);
-  
+
   // UI States & Modals
   const [showNicknameModal, setShowNicknameModal] = useState(false);
   const [isDataLoaded, setIsDataLoaded] = useState(false);
@@ -313,7 +313,7 @@ export default function App() {
   // Save to Cloud on data changes
   useEffect(() => {
     if (user && isDataLoaded) {
-      setDoc(doc(db, 'users', user.uid), { 
+      setDoc(doc(db, 'users', user.uid), {
         inventory,
         favorites: Array.from(favorites),
         wishlist: Array.from(wishlist),
@@ -331,7 +331,7 @@ export default function App() {
       const docRef = doc(db, 'users', user.uid);
       const unsubscribe = onSnapshot(docRef, (docSnap) => {
         const alreadyPrompted = localStorage.getItem('nickname_prompted');
-        
+
         if (docSnap.exists()) {
           const data = docSnap.data();
           if (data.favorites) setFavorites(new Set(data.favorites));
@@ -340,7 +340,7 @@ export default function App() {
           if (data.savedPlans) setSavedPlans(data.savedPlans);
           if (data.weeklyPlan) setWeeklyPlan(data.weeklyPlan);
           if (data.cookedMeals) setCookedMeals(new Set(data.cookedMeals));
-          
+
           if (data.nickname) {
             setNickname(data.nickname);
             setShowNicknameModal(false);
@@ -404,7 +404,10 @@ export default function App() {
       setSetupSelectedPool(prev => {
         const exists = prev.find(item => item.id === recipeId);
         if (exists) return prev.filter(item => item.id !== recipeId);
-        if (prev.filter(item => item.category === recipe.category).length >= 5) return prev;
+        if (prev.filter(item => item.category === recipe.category).length >= 5) {
+          showSnackbar(`¡Límite alcanzado! Solo puedes elegir 5 ${recipe.category === 'Breakfast' ? 'desayunos' : recipe.category === 'Lunch' ? 'almuerzos' : 'cenas'} para un mejor balance.`);
+          return prev;
+        }
         return [...prev, { id: recipeId, category: recipe.category }];
       });
     } else if (selectedSlot) {
@@ -446,10 +449,25 @@ export default function App() {
     }
   };
 
+  const handleStartNewPlan = () => {
+    setWeeklyPlan(() => {
+      const plan: WeeklyPlan = {};
+      DAYS.forEach(day => { plan[day] = { Desayuno: null, Almuerzo: null, Cena: null }; });
+      return plan;
+    });
+    setSetupSelectedPool([]);
+    setCookedMeals(new Set());
+    setHasFinalizedInitialPlan(false);
+    setIsEditingPlan(false);
+    setSetupStep('breakfast');
+    setView('setup');
+    showSnackbar('¡Menú reiniciado! Empecemos de nuevo.');
+  };
+
   // --- DERIVED STATES ---
 
   const hasPlan = useMemo(() => Object.values(weeklyPlan).some(day => Object.values(day).some(v => v !== null)), [weeklyPlan]);
-  
+
   const isPlanComplete = useMemo(() => DAYS.every(day => Object.values(weeklyPlan[day] || {}).every(v => v !== null)), [weeklyPlan]);
 
   const nextMeal = useMemo(() => {
@@ -481,8 +499,8 @@ export default function App() {
     else if (selectedSection !== 'all') base = base.filter(r => r.category === selectedSection);
 
     return base.filter(recipe => {
-      const matchesSearch = recipe.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                           recipe.ingredients.some(i => i.name.toLowerCase().includes(searchQuery.toLowerCase()));
+      const matchesSearch = recipe.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        recipe.ingredients.some(i => i.name.toLowerCase().includes(searchQuery.toLowerCase()));
       return matchesSearch;
     }).sort((a, b) => {
       const getScore = (r: Recipe) => r.ingredients.filter(i => (inventory[i.name.toLowerCase()]?.amount || 0) >= i.amount).length / r.ingredients.length;
@@ -514,10 +532,16 @@ export default function App() {
       });
   }, [inventory]);
 
+  const isCurrentPlanSaved = useMemo(() => {
+    if (!hasPlan) return false;
+    const currentStr = JSON.stringify(weeklyPlan);
+    return savedPlans.some(sp => JSON.stringify(sp.plan) === currentStr);
+  }, [weeklyPlan, savedPlans, hasPlan]);
+
   // Lock active day to today when conditions are met
   useEffect(() => {
     if (view === 'calendar' && isPlanComplete && hasFinalizedInitialPlan && !isEditingPlan) {
-      setActiveDay(getCurrentDay());
+      setActiveDay('Lunes');
     }
   }, [view, isPlanComplete, hasFinalizedInitialPlan, isEditingPlan]);
 
@@ -578,16 +602,16 @@ export default function App() {
             onClick={() => setView('dashboard')}
           />
           <SidebarNavItem
-            icon={CalendarIcon}
-            label="Mi Plan Semanal"
-            active={view === 'calendar'}
-            onClick={() => { setView('calendar'); setIsShowingCalendarCTA(true); }}
-          />
-          <SidebarNavItem
             icon={Utensils}
             label="Explorar Recetas"
             active={view === 'planner'}
             onClick={() => setView('planner')}
+          />
+          <SidebarNavItem
+            icon={CalendarIcon}
+            label="Mi Plan Semanal"
+            active={view === 'calendar'}
+            onClick={() => { setView('calendar'); setIsShowingCalendarCTA(true); }}
           />
           <SidebarNavItem
             icon={Package}
@@ -607,6 +631,7 @@ export default function App() {
             active={view === 'saved-plans'}
             onClick={() => setView('saved-plans')}
           />
+
         </nav>
 
         {/* User Profile / Auth Section */}
@@ -614,9 +639,9 @@ export default function App() {
           {user ? (
             <div className="space-y-4">
               <div className="flex items-center gap-3 px-2">
-                <img 
-                  src={user.photoURL || `https://ui-avatars.com/api/?name=${user.displayName}`} 
-                  className="w-10 h-10 rounded-xl object-cover border-2 border-orange-100" 
+                <img
+                  src={user.photoURL || `https://ui-avatars.com/api/?name=${user.displayName}`}
+                  className="w-10 h-10 rounded-xl object-cover border-2 border-orange-100"
                   alt="Profile"
                 />
                 <div className="flex-1 min-w-0">
@@ -797,7 +822,7 @@ export default function App() {
                       <div className="space-y-0 sm:space-y-2">
                         <h2 className="text-lg sm:text-3xl font-black tracking-tight flex items-center gap-3">
                           ¡Hola, {nickname || user?.displayName?.split(' ')[0] || 'Invitado'}👋!
-                          <button 
+                          <button
                             onClick={() => setShowNicknameModal(true)}
                             className="p-1 hover:bg-gray-100 rounded-lg transition-colors group"
                           >
@@ -808,12 +833,14 @@ export default function App() {
                           {user ? 'Tu cocina sincronizada' : 'Accede para guardar tus recetas en la nube'}
                         </p>
                       </div>
-                      {nextMeal && (
-                        <div className="bg-orange-50 px-3 py-1.5 rounded-xl border border-orange-100 flex items-center gap-2 sm:hidden">
-                          <Clock className="w-3 h-3 text-orange-500" />
-                          <span className="text-[8px] font-black text-orange-600 uppercase tracking-widest">{nextMeal.time}</span>
-                        </div>
-                      )}
+                      <div className="flex items-center gap-2">
+                        {nextMeal && (
+                          <div className="bg-orange-50 px-3 py-1.5 rounded-xl border border-orange-100 flex items-center gap-2 sm:hidden">
+                            <Clock className="w-3 h-3 text-orange-500" />
+                            <span className="text-[8px] font-black text-orange-600 uppercase tracking-widest">{nextMeal.time}</span>
+                          </div>
+                        )}
+                      </div>
                     </div>
 
                     {/* Next Meal Card - More compact for mobile */}
@@ -1167,7 +1194,7 @@ export default function App() {
                     initial={{ opacity: 0, scale: 0.95 }}
                     animate={{ opacity: 1, scale: 1 }}
                     exit={{ opacity: 0, scale: 0.95 }}
-                    className="space-y-8"
+                    className="space-y-8 pb-60"
                   >
                     {/* Header with Search */}
                     <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
@@ -1282,7 +1309,7 @@ export default function App() {
                                     >
                                       <div
                                         onClick={() => handleSelectRecipe(recipe.id)}
-                                        className={`relative aspect-[4/5] rounded-[20px] overflow-hidden shadow-lg transition-all duration-300 group-hover:shadow-2xl border-4 flex flex-col ${isSelected ? 'border-orange-500 shadow-orange-500/50' : 'border-transparent bg-white shadow-gray-200/50'}`}
+                                        className={`relative aspect-[4/5] rounded-[24px] overflow-hidden shadow-lg transition-all duration-300 group-hover:shadow-2xl border-4 flex flex-col ${isSelected ? 'border-orange-500 shadow-orange-500/30' : 'border-transparent bg-white shadow-gray-200/50'}`}
                                       >
                                         <div className="absolute top-0 left-0 right-0 p-3 z-10 flex flex-col gap-2 pointer-events-none">
                                           {missingList.length === 0 ? (
@@ -1362,7 +1389,7 @@ export default function App() {
                                       >
                                         <div
                                           onClick={() => handleSelectRecipe(recipe.id)}
-                                          className={`relative aspect-[3/4] rounded-[20px] overflow-hidden shadow-lg transition-all duration-300 group-hover:shadow-2xl ${isSelected ? 'ring-4 ring-orange-500 ring-offset-4 ring-offset-gray-50' : ''
+                                          className={`relative aspect-[3/4] rounded-[24px] overflow-hidden shadow-xl transition-all duration-500 group-hover:shadow-2xl border-4 ${isSelected ? 'border-orange-500' : 'border-transparent'
                                             }`}
                                         >
                                           <img
@@ -1434,7 +1461,7 @@ export default function App() {
                                 onClick={() => handleSelectRecipe(recipe.id)}
                                 className="group relative cursor-pointer"
                               >
-                                <div className={`relative aspect-[3/4] rounded-[20px] overflow-hidden shadow-lg transition-all duration-500 group-hover:shadow-2xl group-hover:-translate-y-2 ${isSelected ? 'ring-4 ring-orange-500 ring-offset-4 ring-offset-gray-50' : ''
+                                <div className={`relative aspect-[3/4] rounded-[24px] overflow-hidden shadow-xl transition-all duration-500 group-hover:shadow-2xl group-hover:-translate-y-2 border-4 ${isSelected ? 'border-orange-500 shadow-orange-500/20' : 'border-transparent'
                                   }`}>
                                   <img
                                     src={recipe.image}
@@ -1618,17 +1645,28 @@ export default function App() {
                                 }
                               }
                             }}
-                            className="flex-1 inline-flex items-center justify-center gap-3 bg-orange-500 text-white px-8 py-4 rounded-2xl font-black text-sm shadow-lg shadow-orange-500/30 hover:scale-105 transition-transform active:scale-95"
+                            className="flex-[2] inline-flex items-center justify-center gap-3 bg-orange-500 text-white px-8 py-4 rounded-2xl font-black text-sm shadow-xl shadow-orange-500/30 hover:scale-105 transition-transform active:scale-95"
                           >
                             {setupSelectedPool.length === 0 ? 'Crear Plan Semanal' : 'Continuar Planificación'}
                             <ArrowRight className="w-4 h-4" />
                           </button>
+
+                          {setupSelectedPool.length > 0 && (
+                            <button
+                              onClick={() => handleStartNewPlan()}
+                              className="flex-1 inline-flex items-center justify-center gap-3 bg-red-50 border border-red-100 text-red-500 px-8 py-4 rounded-2xl font-black text-sm hover:bg-red-100 transition-all active:scale-95 shadow-sm"
+                            >
+                              <Plus className="w-4 h-4" />
+                              Nuevo Plan
+                            </button>
+                          )}
+
                           <button
                             onClick={() => setView('saved-plans')}
                             className="flex-1 inline-flex items-center justify-center gap-3 bg-white border border-gray-200 text-gray-600 px-8 py-4 rounded-2xl font-black text-sm hover:bg-gray-50 transition-all active:scale-95 shadow-sm"
                           >
                             <FolderOpen className="w-4 h-4 text-orange-500" />
-                            Ver Planes Guardados
+                            Ver Guardados
                           </button>
                         </div>
                       </div>
@@ -1675,7 +1713,7 @@ export default function App() {
                                 <button
                                   onClick={() => {
                                     setIsEditingPlan(true);
-                                    setActiveDay(getCurrentDay());
+                                    setActiveDay('Lunes');
                                   }}
                                   className="p-3 bg-white border border-gray-200 rounded-2xl shadow-sm hover:bg-gray-50 transition-all active:scale-95"
                                   title="Editar Plan"
@@ -2427,23 +2465,7 @@ export default function App() {
                         <p className="text-gray-500 font-medium">Reutiliza tus mejores combinaciones semanales</p>
                       </div>
                       <div className="flex items-center gap-3">
-                        <button
-                          onClick={() => {
-                            setEditingSavedPlan(null);
-                            setNewPlanTitle('');
-                            setNewPlanDescription('');
-                            setIsSavingPlanModalOpen(true);
-                          }}
-                          className="p-3 bg-white border border-gray-100 rounded-2xl shadow-sm text-gray-400 hover:text-orange-500 transition-colors"
-                        >
-                          <Save className="w-5 h-5" />
-                        </button>
-                        <button
-                          onClick={() => setView('calendar')}
-                          className="p-3 bg-white border border-gray-100 rounded-2xl shadow-sm text-gray-400 hover:text-orange-500 transition-colors"
-                        >
-                          <X className="w-5 h-5" />
-                        </button>
+                        {/* Header buttons removed as requested */}
                       </div>
                     </div>
 
@@ -2722,9 +2744,9 @@ export default function App() {
             className="flex flex-col items-center gap-0.5 transition-all duration-300 text-gray-400 hover:text-gray-600"
           >
             {user ? (
-              <img 
-                src={user.photoURL || `https://ui-avatars.com/api/?name=${user.displayName}`} 
-                className="w-5 h-5 rounded-full object-cover border border-orange-200" 
+              <img
+                src={user.photoURL || `https://ui-avatars.com/api/?name=${user.displayName}`}
+                className="w-5 h-5 rounded-full object-cover border border-orange-200"
                 alt="Profile"
               />
             ) : (
@@ -2790,14 +2812,28 @@ export default function App() {
                     <Trash2 className="w-7 h-7 text-red-500" />
                   </div>
                   <div className="space-y-2">
-                    <h3 className="text-2xl font-black tracking-tight text-gray-900">¿Eliminar plan?</h3>
-                    <p className="text-gray-500 font-medium leading-relaxed max-w-[280px] mx-auto">
-                      Esta acción eliminará permanentemente tu plan semanal actual.
+                    <h3 className="text-2xl font-black tracking-tight text-gray-900">¿Eliminar plan actual?</h3>
+                    <p className="text-gray-500 font-medium leading-relaxed max-w-[320px] mx-auto px-4 text-sm">
+                      {isCurrentPlanSaved
+                        ? 'Este plan ya está guardado de forma segura. Podrás recuperarlo en cualquier momento desde la sección "Mis Planes".'
+                        : '¡Cuidado! Este plan NO ha sido guardado. Al borrarlo, perderás la selección de recetas para esta semana.'}
                     </p>
                   </div>
-                  <div className="bg-red-50 border border-red-200 rounded-2xl px-4 py-3 w-full">
-                    <p className="text-red-600 font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2">
-                      <span>⚠️</span> Esta acción no se puede revertir
+                  <div className={`rounded-2xl px-4 py-3 w-full border ${isCurrentPlanSaved
+                    ? 'bg-blue-50 border-blue-200 text-blue-600'
+                    : 'bg-red-50 border-red-200 text-red-600'}`}>
+                    <p className="font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2">
+                      {isCurrentPlanSaved ? (
+                        <>
+                          <Info className="w-4 h-4" />
+                          Disponible en tus planes guardados
+                        </>
+                      ) : (
+                        <>
+                          <AlertCircle className="w-4 h-4" />
+                          Se perderá de forma permanente
+                        </>
+                      )}
                     </p>
                   </div>
                 </div>
@@ -2821,8 +2857,9 @@ export default function App() {
                       setHasFinalizedInitialPlan(false);
                       setIsEditingPlan(false);
                       setIsDeletePlanModalOpen(false);
-                      setView('setup');
-                      showSnackbar('Plan eliminado correctamente.');
+                      setView('calendar');
+                      setIsShowingCalendarCTA(true);
+                      showSnackbar(isCurrentPlanSaved ? 'Plan removido para iniciar uno nuevo.' : 'Plan eliminado.');
                     }}
                     className="flex-[1.5] py-4 rounded-2xl font-black text-sm text-white bg-red-500 hover:bg-red-600 transition-all active:scale-95 shadow-lg shadow-red-500/25 flex items-center justify-center gap-2"
                   >
@@ -3114,7 +3151,7 @@ export default function App() {
                   >
                     Empezar a cocinar
                   </button>
-                  
+
                   {user && (
                     <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">
                       O usaremos tu nombre de Google: {user.displayName?.split(' ')[0]}
