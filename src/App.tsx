@@ -934,6 +934,8 @@ export default function App() {
                         </div>
                         <button
                           onClick={() => {
+                            setSelectedSection('all');
+                            setSearchQuery('');
                             setView('setup');
                             setIsShowingCalendarCTA(false);
                           }}
@@ -1137,6 +1139,8 @@ export default function App() {
                         <div className="flex items-center gap-3">
                           <button
                             onClick={() => {
+                              setSelectedSection('all');
+                              setSearchQuery('');
                               if (isReselectingPool) {
                                 setView('calendar');
                                 setIsReselectingPool(false);
@@ -1303,7 +1307,7 @@ export default function App() {
                                     {category === 'Breakfast' ? 'Opciones de Desayuno' : category === 'Lunch' ? 'Opciones de Almuerzo' : 'Opciones de Cena'}
                                   </h3>
                                   <button
-                                    onClick={() => setSearchQuery(category)}
+                                    onClick={() => setSelectedSection(category as any)}
                                     className="text-orange-500 font-black text-xs uppercase tracking-widest hover:underline"
                                   >
                                     Ver Todo
@@ -1442,6 +1446,15 @@ export default function App() {
                                       </div>
                                     </div>
                                   </div>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setSelectedRecipeForModal(recipe);
+                                    }}
+                                    className="absolute top-3 right-3 z-20 p-2 bg-white/20 backdrop-blur-md rounded-xl text-white hover:bg-white hover:text-orange-500 transition-all opacity-0 group-hover:opacity-100"
+                                  >
+                                    <Search className="w-4 h-4" />
+                                  </button>
                                 </div>
                               </motion.div>
                             );
@@ -1454,8 +1467,8 @@ export default function App() {
                               <p className="text-sm text-gray-400 font-medium">
                                 No encontramos {searchQuery !== '' ? `"${searchQuery}"` : 'nada'} en {
                                   selectedSection === 'favorites' ? 'tus favoritos' :
-                                  selectedSection === 'wishlist' ? 'tus guardados' :
-                                  'esta categoría'
+                                    selectedSection === 'wishlist' ? 'tus guardados' :
+                                      'esta categoría'
                                 }.
                               </p>
                             </div>
@@ -1503,6 +1516,8 @@ export default function App() {
 
                             <button
                               onClick={() => {
+                                setSelectedSection('all');
+                                setSearchQuery('');
                                 if (isReselectingPool) {
                                   setView('calendar');
                                   setIsReselectingPool(false);
@@ -1512,7 +1527,7 @@ export default function App() {
                                   else {
                                     setView('calendar');
                                     setHasReachedCalendarOnce(true);
-                                    setIsShowingCalendarCTA(false); // When moving from setup to calendar, don't show CTA
+                                    setIsShowingCalendarCTA(false);
                                   }
                                 }
                               }}
@@ -1976,7 +1991,7 @@ export default function App() {
                                     {category === 'Breakfast' ? 'Desayunos' : category === 'Lunch' ? 'Almuerzos' : 'Cenas'}
                                   </h3>
                                   <button
-                                    onClick={() => setSearchQuery(category)}
+                                    onClick={() => setSelectedSection(category as any)}
                                     className="text-orange-500 font-black text-[10px] sm:text-xs uppercase tracking-widest hover:underline"
                                   >
                                     Ver Todo
@@ -2124,6 +2139,15 @@ export default function App() {
                                       </p>
                                     )}
                                   </div>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setSelectedRecipeForModal(recipe);
+                                    }}
+                                    className="absolute top-3 right-3 z-20 p-2 bg-white/20 backdrop-blur-md rounded-xl text-white hover:bg-white hover:text-orange-500 transition-all opacity-0 group-hover:opacity-100"
+                                  >
+                                    <Search className="w-4 h-4" />
+                                  </button>
                                 </div>
                               </motion.div>
                             );
@@ -2141,11 +2165,11 @@ export default function App() {
                             <p className="text-sm text-gray-400 font-medium max-w-xs mx-auto">
                               No encontramos nada {searchQuery !== '' ? `que coincida con "${searchQuery}"` : ''} en {
                                 selectedSection === 'all' ? 'todas las recetas' :
-                                selectedSection === 'Breakfast' ? 'desayunos' :
-                                selectedSection === 'Lunch' ? 'almuerzos' :
-                                selectedSection === 'Dinner' ? 'cenas' :
-                                selectedSection === 'favorites' ? 'tus favoritos' :
-                                'tus recetas guardadas'
+                                  selectedSection === 'Breakfast' ? 'desayunos' :
+                                    selectedSection === 'Lunch' ? 'almuerzos' :
+                                      selectedSection === 'Dinner' ? 'cenas' :
+                                        selectedSection === 'favorites' ? 'tus favoritos' :
+                                          'tus recetas guardadas'
                               }.
                             </p>
                           </div>
