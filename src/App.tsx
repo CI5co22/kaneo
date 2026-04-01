@@ -6,7 +6,8 @@ import {
   CheckCircle2, 
   Circle, 
   Trash2, 
-  Plus, 
+  Plus,
+  Minus,
   ChefHat, 
   Wallet, 
   Calendar as CalendarIcon, 
@@ -22,10 +23,13 @@ import {
   Star,
   Heart,
   Save,
-  FolderOpen
+  FolderOpen,
+  ListTodo,
+  AlertCircle,
+  Info
 } from 'lucide-react';
 import { RECIPES } from './data';
-import { Recipe, WeeklyPlan, DayOfWeek, MealTime, SavedPlan } from './types';
+import { Recipe, WeeklyPlan, DayOfWeek, MealTime, SavedPlan, InventoryState } from './types';
 
 const DAYS: DayOfWeek[] = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
 const MEALS: MealTime[] = ['Desayuno', 'Almuerzo', 'Cena'];
@@ -172,8 +176,8 @@ const SidebarNavItem: React.FC<{ icon: any, label: string, active: boolean, onCl
 );
 
 export default function App() {
-  const [view, setView] = useState<'dashboard' | 'calendar' | 'planner' | 'inventory' | 'setup' | 'recipe-details' | 'saved-plans'>('dashboard');
-  const [previousView, setPreviousView] = useState<'dashboard' | 'calendar' | 'planner' | 'inventory' | 'setup' | 'recipe-details' | 'saved-plans'>('dashboard');
+  const [view, setView] = useState<'dashboard' | 'calendar' | 'planner' | 'inventory' | 'setup' | 'recipe-details' | 'saved-plans' | 'shopping-list'>('dashboard');
+  const [previousView, setPreviousView] = useState<'dashboard' | 'calendar' | 'planner' | 'inventory' | 'setup' | 'recipe-details' | 'saved-plans' | 'shopping-list'>('dashboard');
   const [favorites, setFavorites] = useState<Set<string>>(() => {
     const saved = localStorage.getItem('favorites');
     return saved ? new Set(JSON.parse(saved)) : new Set();
@@ -277,7 +281,27 @@ export default function App() {
     });
     return plan;
   });
-  const [inventory, setInventory] = useState<Set<string>>(new Set());
+  const [inventory, setInventory] = useState<InventoryState>(() => {
+    const saved = localStorage.getItem('inventoryState');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (!Array.isArray(parsed)) return parsed as InventoryState;
+      } catch(e) {}
+    }
+    return {};
+  });
+  const [snackbarMessage, setSnackbarMessage] = useState<string | null>(null);
+  
+  useEffect(() => {
+    localStorage.setItem('inventoryState', JSON.stringify(inventory));
+  }, [inventory]);
+
+  const showSnackbar = (msg: string) => {
+    setSnackbarMessage(msg);
+    setTimeout(() => setSnackbarMessage(null), 4000);
+  };
+
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSlot, setSelectedSlot] = useState<{ day: DayOfWeek, time: MealTime } | null>(null);
 
@@ -385,28 +409,60 @@ export default function App() {
              (searchQuery.toLowerCase() === 'favoritos' && favorites.has(recipe.id)) ||
              (searchQuery.toLowerCase() === 'guardados' && wishlist.has(recipe.id));
     }).sort((a, b) => {
-      const aMatches = a.ingredients.filter(i => inventory.has(i.name.toLowerCase())).length;
-      const bMatches = b.ingredients.filter(i => inventory.has(i.name.toLowerCase())).length;
+      const aMatches = a.ingredients.filter(i => {
+        const inv = inventory[i.name.toLowerCase()];
+        return inv && inv.amount >= i.amount;
+      }).length / a.ingredients.length;
+      const bMatches = b.ingredients.filter(i => {
+        const inv = inventory[i.name.toLowerCase()];
+        return inv && inv.amount >= i.amount;
+      }).length / b.ingredients.length;
       return bMatches - aMatches;
     });
   }, [searchQuery, inventory, view, setupStep, selectedSlot, favorites]);
 
   const totalCost = useMemo(() => {
     let cost = 0;
+    
+    const reqs: Record<string, { amount: number; costPerUnit: number }> = {};
     Object.values(weeklyPlan).forEach(day => {
       Object.values(day).forEach(recipeId => {
         if (recipeId) {
           const recipe = RECIPES.find(r => r.id === recipeId);
           recipe?.ingredients.forEach(ing => {
-            if (!inventory.has(ing.name.toLowerCase())) {
-              cost += ing.estimatedCost;
-            }
+            const key = ing.name.toLowerCase();
+            if(!reqs[key]) reqs[key] = { amount: 0, costPerUnit: ing.estimatedCost / ing.amount };
+            reqs[key].amount += ing.amount;
           });
         }
       });
     });
+
+    Object.keys(reqs).forEach(key => {
+      const need = reqs[key].amount;
+      const have = inventory[key]?.amount || 0;
+      if (need > have) {
+        cost += (need - have) * reqs[key].costPerUnit;
+      }
+    });
+
     return cost;
   }, [weeklyPlan, inventory]);
+
+  const cookableNow = useMemo(() => {
+    return RECIPES.filter(recipe => {
+      let haveCount = 0;
+      recipe.ingredients.forEach(i => {
+        const inv = inventory[i.name.toLowerCase()];
+        if (inv && inv.amount >= i.amount) haveCount++;
+      });
+      return (haveCount / recipe.ingredients.length) >= 0.6;
+    }).sort((a,b) => {
+      let aHave = 0; a.ingredients.forEach(i => { if (inventory[i.name.toLowerCase()]?.amount >= i.amount) aHave++; });
+      let bHave = 0; b.ingredients.forEach(i => { if (inventory[i.name.toLowerCase()]?.amount >= i.amount) bHave++; });
+      return (bHave/b.ingredients.length) - (aHave/a.ingredients.length);
+    });
+  }, [inventory]);
 
   const handleSelectRecipe = (recipeId: string) => {
     if (view === 'setup') {
@@ -447,12 +503,35 @@ export default function App() {
   const handleCook = () => {
     if (nextMeal?.recipe) {
       const { day, time } = nextMeal;
+      
+      const depleted: string[] = [];
+      setInventory(prev => {
+        const next = { ...prev };
+        nextMeal.recipe!.ingredients.forEach(ing => {
+          const key = ing.name.toLowerCase();
+          if (next[key]) {
+            next[key].amount -= ing.amount;
+            if (next[key].amount <= 0) {
+              next[key].amount = 0;
+              depleted.push(ing.name);
+            }
+          } else {
+             depleted.push(ing.name);
+          }
+        });
+        return next;
+      });
+
       setCookedMeals(prev => {
         const next = new Set(prev);
         next.add(`${day}-${time}`);
         return next;
       });
       setCookingMessage(`¡Buen provecho! Has cocinado ${nextMeal.recipe.name}.`);
+      
+      if (depleted.length > 0) {
+        showSnackbar(`Se agotó el stock de: ${depleted.join(', ')}`);
+      }
       setTimeout(() => setCookingMessage(null), 3000);
     }
   };
@@ -507,6 +586,12 @@ export default function App() {
             onClick={() => setView('inventory')} 
           />
           <SidebarNavItem 
+            icon={ListTodo} 
+            label="Lista de Compras" 
+            active={view === 'shopping-list'} 
+            onClick={() => setView('shopping-list')} 
+          />
+          <SidebarNavItem 
             icon={FolderOpen} 
             label="Mis Planes" 
             active={view === 'saved-plans'} 
@@ -530,6 +615,23 @@ export default function App() {
       </aside>
 
       <div className="flex-1 flex flex-col min-w-0">
+        <AnimatePresence>
+          {snackbarMessage && (
+            <motion.div 
+              initial={{ opacity: 0, y: 50 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 50 }}
+              className="fixed bottom-24 left-1/2 -translate-x-1/2 bg-gray-900 text-white px-6 py-3 rounded-full shadow-2xl z-[200] flex items-center gap-3 font-medium text-sm w-max max-w-[90vw]"
+            >
+              <AlertCircle className="w-5 h-5 text-orange-400" />
+              <span className="truncate">{snackbarMessage}</span>
+              <button onClick={() => setSnackbarMessage(null)} className="ml-2 bg-white/10 p-1 rounded-full hover:bg-white/20">
+                <X className="w-4 h-4" />
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {/* Cooking Feedback Overlay */}
       <AnimatePresence>
         {cookingMessage && (
@@ -1084,6 +1186,84 @@ export default function App() {
                       </motion.div>
                     )}
 
+                    {/* Cocinable Ahora */}
+                    {cookableNow.length > 0 && searchQuery === '' && (
+                      <div className="space-y-4">
+                        <div className="bg-green-50 border border-green-100 rounded-2xl p-4 sm:p-6 mb-2 text-left">
+                          <h3 className="text-sm font-black text-green-800 uppercase tracking-widest flex items-center gap-2">
+                            <Info className="w-4 h-4" />
+                            Insights de tu Despensa
+                          </h3>
+                          <p className="text-green-700 font-medium text-sm mt-1">
+                            Tienes ingredientes suficientes para cocinar {cookableNow.length} {cookableNow.length === 1 ? 'receta' : 'recetas'} en este momento. ¡Aprovecha lo que ya tienes!
+                          </p>
+                        </div>
+                        <div className="flex items-center justify-between px-1 sm:px-2">
+                          <h3 className="text-xl sm:text-2xl md:text-3xl font-black tracking-tight flex items-center gap-2">
+                            <ChefHat className="w-6 h-6 text-orange-500"/>
+                            Cocinable Ahora
+                          </h3>
+                        </div>
+                        <div className="flex gap-3 sm:gap-4 overflow-x-auto no-scrollbar pb-4 px-1 -mx-1 text-left">
+                          {cookableNow.map(recipe => {
+                            let missingList: string[] = [];
+                            let costToCook = 0;
+                            recipe.ingredients.forEach(i => {
+                              const inv = inventory[i.name.toLowerCase()];
+                              if (!inv || inv.amount < i.amount) {
+                                missingList.push(i.name);
+                                costToCook += i.estimatedCost;
+                              }
+                            });
+                            
+                            const isSelected = setupSelectedPool.some(item => item.id === recipe.id);
+                            
+                            return (
+                              <motion.div 
+                                key={recipe.id}
+                                whileHover={{ scale: 1.05, zIndex: 10 }}
+                                className="flex-shrink-0 w-[180px] sm:w-[220px] group cursor-pointer relative"
+                              >
+                                <div 
+                                  onClick={() => handleSelectRecipe(recipe.id)}
+                                  className={`relative aspect-[4/5] rounded-[20px] overflow-hidden shadow-lg transition-all duration-300 group-hover:shadow-2xl border-4 flex flex-col ${isSelected ? 'border-orange-500 shadow-orange-500/50' : 'border-transparent bg-white shadow-gray-200/50'}`}
+                                >
+                                  <div className="absolute top-0 left-0 right-0 p-3 z-10 flex flex-col gap-2 pointer-events-none">
+                                    {missingList.length === 0 ? (
+                                      <div className="bg-green-100/90 backdrop-blur-md text-green-700 text-[10px] font-black px-2.5 py-1.5 rounded-xl flex flex-row items-center w-max gap-1.5 shadow-sm border border-green-200">
+                                        <CheckCircle2 className="w-3.5 h-3.5" />
+                                        Tienes todo
+                                      </div>
+                                    ) : (
+                                      <div className="bg-yellow-100/90 backdrop-blur-md text-yellow-700 text-[10px] font-black px-2.5 py-1.5 rounded-xl flex flex-row w-max items-center gap-1.5 shadow-sm border border-yellow-200 line-clamp-1 truncate">
+                                        <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
+                                        Faltan {missingList.length}
+                                      </div>
+                                    )}
+                                  </div>
+                                  <img 
+                                    src={recipe.image} 
+                                    className="w-full h-[60%] object-cover transition-transform duration-700 group-hover:scale-110" 
+                                    referrerPolicy="no-referrer" 
+                                  />
+                                  <div className="p-4 flex flex-col justify-between h-[40%] bg-white">
+                                    <h4 className="text-gray-900 font-black text-sm leading-tight line-clamp-2">
+                                      {recipe.name}
+                                    </h4>
+                                    <div className="flex items-center justify-between mt-1">
+                                      <span className="text-orange-500 font-black text-xs uppercase tracking-widest whitespace-nowrap">
+                                        Ahorras ${(recipe.ingredients.reduce((s,i)=>s+i.estimatedCost,0) - costToCook).toFixed(2)}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
+                              </motion.div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
                     {/* Category Row for current step */}
                     {(() => {
                       const catMap = { breakfast: 'Breakfast', lunch: 'Lunch', dinner: 'Dinner' };
@@ -1108,7 +1288,7 @@ export default function App() {
                           <div className="flex gap-4 overflow-x-auto no-scrollbar pb-8 px-2 -mx-2">
                             {categoryRecipes.map(recipe => {
                               const isSelected = setupSelectedPool.some(item => item.id === recipe.id);
-                              const matchCount = recipe.ingredients.filter(i => inventory.has(i.name.toLowerCase())).length;
+                              const matchCount = recipe.ingredients.filter(i => { const inv = inventory[i.name.toLowerCase()]; return inv && inv.amount >= i.amount; }).length;
                               return (
                                 <motion.div 
                                   key={recipe.id}
@@ -1674,6 +1854,89 @@ export default function App() {
                       </div>
                     </motion.div>
 
+                    {/* Cocinable Ahora */}
+                    {cookableNow.length > 0 && searchQuery === '' && (
+                      <div className="space-y-4">
+                        <div className="bg-green-50 border border-green-100 rounded-2xl p-4 sm:p-6 mb-2 text-left">
+                          <h3 className="text-sm font-black text-green-800 uppercase tracking-widest flex items-center gap-2">
+                            <Info className="w-4 h-4" />
+                            Insights de tu Despensa
+                          </h3>
+                          <p className="text-green-700 font-medium text-sm mt-1">
+                            Tienes ingredientes suficientes para cocinar {cookableNow.length} {cookableNow.length === 1 ? 'receta' : 'recetas'} en este momento. ¡Aprovecha lo que ya tienes!
+                          </p>
+                        </div>
+                        <div className="flex items-center justify-between px-1 sm:px-2">
+                          <h3 className="text-xl sm:text-2xl md:text-3xl font-black tracking-tight flex items-center gap-2">
+                            <ChefHat className="w-6 h-6 text-orange-500"/>
+                            Cocinable Ahora
+                          </h3>
+                        </div>
+                        <div className="flex gap-3 sm:gap-4 overflow-x-auto no-scrollbar pb-4 px-1 -mx-1 text-left">
+                          {cookableNow.map(recipe => {
+                            let missingList: string[] = [];
+                            let costToCook = 0;
+                            recipe.ingredients.forEach(i => {
+                              const inv = inventory[i.name.toLowerCase()];
+                              if (!inv || inv.amount < i.amount) {
+                                missingList.push(i.name);
+                                costToCook += i.estimatedCost;
+                              }
+                            });
+                            
+                            return (
+                              <motion.div 
+                                key={recipe.id}
+                                whileHover={{ scale: 1.05, zIndex: 10 }}
+                                className="flex-shrink-0 w-[180px] sm:w-[220px] group cursor-pointer relative"
+                              >
+                                <div 
+                                  onClick={() => {
+                                    if (selectedSlot) {
+                                      handleSelectRecipe(recipe.id);
+                                    } else {
+                                      setSelectedRecipeForDetails(recipe);
+                                      navigateTo('recipe-details');
+                                    }
+                                  }}
+                                  className="relative aspect-[4/5] rounded-[20px] overflow-hidden shadow-lg transition-all duration-300 group-hover:shadow-2xl bg-white border border-gray-100 flex flex-col"
+                                >
+                                  <div className="absolute top-0 left-0 right-0 p-3 z-10 flex flex-col gap-2 pointer-events-none">
+                                    {missingList.length === 0 ? (
+                                      <div className="bg-green-100/90 backdrop-blur-md text-green-700 text-[10px] font-black px-2.5 py-1.5 rounded-xl flex flex-row items-center w-max gap-1.5 shadow-sm border border-green-200">
+                                        <CheckCircle2 className="w-3.5 h-3.5" />
+                                        Tienes todo
+                                      </div>
+                                    ) : (
+                                      <div className="bg-yellow-100/90 backdrop-blur-md text-yellow-700 text-[10px] font-black px-2.5 py-1.5 rounded-xl flex flex-row w-max items-center gap-1.5 shadow-sm border border-yellow-200 line-clamp-1 truncate">
+                                        <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
+                                        Faltan {missingList.length}
+                                      </div>
+                                    )}
+                                  </div>
+                                  <img 
+                                    src={recipe.image} 
+                                    className="w-full h-[60%] object-cover transition-transform duration-700 group-hover:scale-110" 
+                                    referrerPolicy="no-referrer" 
+                                  />
+                                  <div className="p-4 flex flex-col justify-between h-[40%] bg-white">
+                                    <h4 className="text-gray-900 font-black text-sm leading-tight line-clamp-2">
+                                      {recipe.name}
+                                    </h4>
+                                    <div className="flex items-center justify-between">
+                                      <span className="text-orange-500 font-black text-xs uppercase tracking-widest whitespace-nowrap">
+                                        Ahorras ${(recipe.ingredients.reduce((s,i)=>s+i.estimatedCost,0) - costToCook).toFixed(2)}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
+                              </motion.div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
                     {/* Category Rows */}
                     {['Breakfast', 'Lunch', 'Dinner'].map(category => {
                       const categoryRecipes = RECIPES.filter(r => r.category === category);
@@ -1695,7 +1958,7 @@ export default function App() {
                           
                           <div className="flex gap-3 sm:gap-4 overflow-x-auto no-scrollbar pb-4 px-1 -mx-1">
                             {categoryRecipes.map(recipe => {
-                              const matchCount = recipe.ingredients.filter(i => inventory.has(i.name.toLowerCase())).length;
+                              const matchCount = recipe.ingredients.filter(i => { const inv = inventory[i.name.toLowerCase()]; return inv && inv.amount >= i.amount; }).length;
                               return (
                                 <motion.div 
                                   key={recipe.id}
@@ -1768,7 +2031,7 @@ export default function App() {
                   /* Search Results Grid */
                   <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4">
                     {filteredRecipes.map(recipe => {
-                      const matchCount = recipe.ingredients.filter(i => inventory.has(i.name.toLowerCase())).length;
+                      const matchCount = recipe.ingredients.filter(i => { const inv = inventory[i.name.toLowerCase()]; return inv && inv.amount >= i.amount; }).length;
                       return (
                         <motion.div 
                           layout
@@ -1859,6 +2122,127 @@ export default function App() {
                   </div>
                 )}
               </div>
+            </motion.div>
+          )}
+
+          {view === 'shopping-list' && (
+            <motion.div
+              key="shopping-list"
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 20 }}
+              className="space-y-6 sm:space-y-10 h-full overflow-y-auto no-scrollbar pb-24"
+            >
+              <div className="space-y-2">
+                <h2 className="text-3xl font-black tracking-tight">Lista de Compras</h2>
+                <p className="text-gray-500 font-medium">Generada automáticamente de tu plan semanal.</p>
+              </div>
+
+              {(() => {
+                const reqs: Record<string, { amount: number, unit: string, name: string }> = {};
+                let hasPlanItems = false;
+                Object.values(weeklyPlan).forEach(day => {
+                  Object.values(day).forEach(recipeId => {
+                    if (recipeId) {
+                      hasPlanItems = true;
+                      const recipe = RECIPES.find(r => r.id === recipeId);
+                      recipe?.ingredients.forEach(ing => {
+                        const key = ing.name.toLowerCase();
+                        if(!reqs[key]) reqs[key] = { amount: 0, unit: ing.unit, name: ing.name };
+                        reqs[key].amount += ing.amount;
+                      });
+                    }
+                  });
+                });
+
+                if (!hasPlanItems) return (
+                  <div className="py-24 text-center space-y-6 bg-white rounded-[40px] border-2 border-dashed border-gray-100">
+                    <div className="w-24 h-24 bg-gray-50 rounded-full flex items-center justify-center mx-auto">
+                      <ShoppingCart className="w-10 h-10 text-gray-200" />
+                    </div>
+                    <div className="space-y-2">
+                      <h3 className="text-xl font-black tracking-tight">Tu plan está vacío</h3>
+                      <p className="text-sm text-gray-400 font-medium max-w-xs mx-auto">Crea un plan semanal para generar tu lista de compras.</p>
+                    </div>
+                  </div>
+                );
+
+                const toBuy = Object.values(reqs).map(req => {
+                  const key = req.name.toLowerCase();
+                  const have = inventory[key]?.amount || 0;
+                  return {
+                    name: req.name,
+                    unit: req.unit,
+                    need: req.amount,
+                    have: have,
+                    toBuy: Math.max(0, req.amount - have)
+                  };
+                }).filter(r => r.toBuy > 0);
+
+                if (toBuy.length === 0) return (
+                  <div className="py-24 text-center space-y-6 bg-green-50 rounded-[40px] border border-green-100 shadow-sm">
+                    <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center mx-auto shadow-sm">
+                      <CheckCircle2 className="w-10 h-10 text-green-500" />
+                    </div>
+                    <div className="space-y-2">
+                      <h3 className="text-xl font-black tracking-tight text-green-800">¡No necesitas comprar nada!</h3>
+                      <p className="text-sm text-green-600 font-medium max-w-xs mx-auto">Tienes todo lo necesario en tu despensa para cocinar esta semana.</p>
+                    </div>
+                  </div>
+                );
+
+                return (
+                  <div className="bg-white rounded-[32px] p-6 sm:p-8 border border-gray-100 shadow-xl shadow-gray-200/50 space-y-6">
+                    <div className="flex justify-between items-center bg-orange-50 p-4 rounded-2xl">
+                       <span className="font-black text-orange-600">Total ítems a comprar</span>
+                       <span className="bg-orange-600 text-white px-3 py-1 rounded-full font-black">{toBuy.length}</span>
+                    </div>
+                    <div className="space-y-4">
+                      {toBuy.map(item => (
+                        <div key={item.name} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 border border-gray-100 rounded-2xl">
+                          <div>
+                            <p className="font-bold text-gray-800 text-lg">{item.name}</p>
+                            <p className="text-xs text-gray-400 font-medium tracking-wide">Tienes {item.have}{item.unit}, necesitas {item.need}{item.unit}</p>
+                          </div>
+                          <div className="flex items-center gap-4 bg-gray-50 p-2 rounded-xl border border-gray-200">
+                             <input 
+                               id={`buy_${item.name}`}
+                               type="number" 
+                               defaultValue={item.toBuy}
+                               className="w-20 text-center font-black text-lg bg-transparent border-none focus:ring-0 outline-none p-0"
+                             />
+                             <span className="text-xs font-black bg-gray-200 text-gray-500 px-2 py-1 rounded-lg uppercase">{item.unit}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="pt-6">
+                      <button 
+                        onClick={() => {
+                          setInventory(prev => {
+                            const next = {...prev};
+                            toBuy.forEach(item => {
+                              const el = document.getElementById(`buy_${item.name}`) as HTMLInputElement;
+                              const val = parseFloat(el?.value) || 0;
+                              if (val > 0) {
+                                const key = item.name.toLowerCase();
+                                if(!next[key]) next[key] = { name: item.name, amount: 0, unit: item.unit };
+                                next[key].amount += val;
+                              }
+                            });
+                            return next;
+                          });
+                          showSnackbar('Despensa actualizada con los ingresos de compra.');
+                          setView('inventory');
+                        }}
+                        className="w-full bg-orange-500 text-white py-4 rounded-xl font-black shadow-lg shadow-orange-500/20 hover:scale-[1.02] transition-transform active:scale-95"
+                      >
+                        Confirmar Ingreso (Smart Check-in)
+                      </button>
+                    </div>
+                  </div>
+                );
+              })()}
             </motion.div>
           )}
 
@@ -1989,66 +2373,78 @@ export default function App() {
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: 20 }}
-              className="space-y-6"
+              className="space-y-6 sm:space-y-10 h-full overflow-y-auto no-scrollbar pb-20"
             >
-              <h2 className="text-xl font-black tracking-tight">Tu Despensa</h2>
+              <div className="space-y-2">
+                <h2 className="text-3xl font-black tracking-tight">Tu Despensa Inteligente</h2>
+                <p className="text-gray-500 font-medium">Mantén tu inventario actualizado para calcular listas de compra reales.</p>
+              </div>
               
-              <div className="bg-white rounded-3xl p-6 border border-gray-100 space-y-8">
-                <section>
-                  <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-4">Básicos de Despensa</h3>
-                  <div className="space-y-2">
-                    {['Arroz', 'Pasta', 'Aceite', 'Sal', 'Pimienta', 'Ajo', 'Cebolla'].map(ing => (
-                      <button
-                        key={ing}
-                        onClick={() => {
-                          setInventory(prev => {
-                            const next = new Set(prev);
-                            const key = ing.toLowerCase();
-                            if (next.has(key)) next.delete(key);
-                            else next.add(key);
-                            return next;
-                          });
-                        }}
-                        className={`w-full flex items-center justify-between p-4 rounded-2xl border transition-all ${
-                          inventory.has(ing.toLowerCase()) ? 'bg-green-50 border-green-100' : 'bg-gray-50 border-gray-100'
-                        }`}
-                      >
-                        <span className={`text-sm font-bold ${inventory.has(ing.toLowerCase()) ? 'text-green-700' : 'text-gray-600'}`}>
-                          {ing}
-                        </span>
-                        {inventory.has(ing.toLowerCase()) ? <CheckCircle2 className="w-5 h-5 text-green-500" /> : <Circle className="w-5 h-5 text-gray-300" />}
-                      </button>
-                    ))}
-                  </div>
-                </section>
-
-                <section>
-                  <h3 className="text-[10px] font-black text-orange-400 uppercase tracking-widest mb-4">Sobrantes de Comidas</h3>
-                  <div className="space-y-2">
-                    {['Pollo', 'Res', 'Zanahoria', 'Papa', 'Tomate', 'Huevos', 'Leche'].map(ing => (
-                      <button
-                        key={ing}
-                        onClick={() => {
-                          setInventory(prev => {
-                            const next = new Set(prev);
-                            const key = ing.toLowerCase();
-                            if (next.has(key)) next.delete(key);
-                            else next.add(key);
-                            return next;
-                          });
-                        }}
-                        className={`w-full flex items-center justify-between p-4 rounded-2xl border transition-all ${
-                          inventory.has(ing.toLowerCase()) ? 'bg-orange-50 border-orange-100' : 'bg-gray-50 border-gray-100'
-                        }`}
-                      >
-                        <span className={`text-sm font-bold ${inventory.has(ing.toLowerCase()) ? 'text-orange-700' : 'text-gray-600'}`}>
-                          {ing}
-                        </span>
-                        {inventory.has(ing.toLowerCase()) ? <CheckCircle2 className="w-5 h-5 text-orange-500" /> : <Circle className="w-5 h-5 text-gray-300" />}
-                      </button>
-                    ))}
-                  </div>
-                </section>
+              <div className="bg-white rounded-[32px] p-6 sm:p-8 border border-gray-100 shadow-xl shadow-gray-200/50 space-y-8">
+                {(() => {
+                  const allIngs = new Map<string, {name: string, unit: string}>();
+                  RECIPES.forEach(r => r.ingredients.forEach(i => allIngs.set(i.name.toLowerCase(), {name: i.name, unit: i.unit})));
+                  const list = Array.from(allIngs.values()).sort((a,b) => a.name.localeCompare(b.name));
+                  
+                  return (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {list.map(ing => {
+                        const invItem = inventory[ing.name.toLowerCase()];
+                        const currentAmount = invItem ? invItem.amount : 0;
+                        return (
+                          <div key={ing.name} className="flex flex-col gap-3 p-4 bg-gray-50 rounded-2xl border border-gray-100/50 hover:border-orange-200 transition-colors group">
+                             <div className="flex justify-between items-center">
+                               <span className="font-bold text-gray-700">{ing.name}</span>
+                               <span className="text-[10px] font-black uppercase tracking-widest bg-gray-200 text-gray-500 px-2 py-1 rounded-lg">{ing.unit}</span>
+                             </div>
+                             <div className="flex items-center gap-3">
+                               <button 
+                                 onClick={() => setInventory(prev => {
+                                   const next = {...prev};
+                                   const key = ing.name.toLowerCase();
+                                   if (!next[key]) next[key] = {name: ing.name, amount: 0, unit: ing.unit};
+                                   next[key].amount = Math.max(0, next[key].amount - 1);
+                                   return next;
+                                 })}
+                                 className="w-10 h-10 rounded-full bg-white border border-gray-200 flex items-center justify-center hover:bg-gray-100 transition-colors shadow-sm text-gray-400 hover:text-red-500"
+                               >
+                                 <Minus className="w-5 h-5"/>
+                               </button>
+                               <input 
+                                 type="number" 
+                                 min="0"
+                                 value={currentAmount || ''}
+                                 placeholder="0"
+                                 onChange={(e) => {
+                                   const val = parseFloat(e.target.value) || 0;
+                                   setInventory(prev => {
+                                     const next = {...prev};
+                                     const key = ing.name.toLowerCase();
+                                     next[key] = { name: ing.name, amount: Math.max(0, val), unit: ing.unit };
+                                     return next;
+                                   });
+                                 }}
+                                 className="flex-1 text-center font-black text-xl bg-white border border-gray-200 rounded-xl py-2 focus:ring-2 focus:ring-orange-500 outline-none"
+                               />
+                               <button 
+                                 onClick={() => setInventory(prev => {
+                                   const next = {...prev};
+                                   const key = ing.name.toLowerCase();
+                                   if (!next[key]) next[key] = {name: ing.name, amount: 0, unit: ing.unit};
+                                   next[key].amount = Math.max(0, next[key].amount) + 1;
+                                   return next;
+                                 })}
+                                 className="w-10 h-10 rounded-full bg-white border border-gray-200 flex items-center justify-center hover:bg-gray-100 transition-colors shadow-sm text-gray-400 hover:text-green-500"
+                               >
+                                 <Plus className="w-5 h-5"/>
+                               </button>
+                             </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
               </div>
             </motion.div>
           )}
@@ -2118,6 +2514,13 @@ export default function App() {
         >
           <Package className={`w-5 h-5 ${view === 'inventory' ? 'fill-orange-50' : ''}`} />
           <span className="text-[8px] font-black uppercase tracking-widest">Despensa</span>
+        </button>
+        <button 
+          onClick={() => setView('shopping-list')}
+          className={`flex flex-col items-center gap-0.5 transition-all duration-300 ${view === 'shopping-list' ? 'text-orange-500 scale-110' : 'text-gray-400 hover:text-gray-600'}`}
+        >
+          <ListTodo className={`w-5 h-5 ${view === 'shopping-list' ? 'fill-orange-50' : ''}`} />
+          <span className="text-[8px] font-black uppercase tracking-widest">Lista</span>
         </button>
       </nav>
 

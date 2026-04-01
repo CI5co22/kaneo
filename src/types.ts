@@ -42,3 +42,5 @@ export interface SavedPlan {
   plan: WeeklyPlan;
   createdAt: string;
 }
+
+export type InventoryState = Record<string, InventoryItem>;
