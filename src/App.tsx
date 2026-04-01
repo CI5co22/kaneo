@@ -227,6 +227,10 @@ export default function App() {
     return saved ? JSON.parse(saved) : [];
   });
   const [isSavingPlanModalOpen, setIsSavingPlanModalOpen] = useState(false);
+  const [isDeletePlanModalOpen, setIsDeletePlanModalOpen] = useState(false);
+  const [hasShoppingListReady, setHasShoppingListReady] = useState(false);
+  const [hasConfirmedShoppingList, setHasConfirmedShoppingList] = useState(false);
+  const [showShoppingListBanner, setShowShoppingListBanner] = useState(false);
   const [newPlanTitle, setNewPlanTitle] = useState('');
   const [newPlanDescription, setNewPlanDescription] = useState('');
   const [editingSavedPlan, setEditingSavedPlan] = useState<SavedPlan | null>(null);
@@ -499,6 +503,7 @@ export default function App() {
   };
 
   const [cookingMessage, setCookingMessage] = useState<string | null>(null);
+  const [isCookingAnimating, setIsCookingAnimating] = useState(false);
 
   const handleCook = () => {
     if (nextMeal?.recipe) {
@@ -781,7 +786,7 @@ export default function App() {
               {/* Next Meal Card - More compact for mobile */}
               {hasPlan ? (
                 nextMeal ? (
-                  <div className="hidden sm:block bg-white rounded-[24px] sm:rounded-[32px] p-4 sm:p-6 shadow-xl shadow-orange-500/10 border border-orange-100 space-y-4 sm:space-y-6">
+                  <div className="hidden sm:block relative overflow-hidden bg-white rounded-[24px] sm:rounded-[32px] p-4 sm:p-6 shadow-xl shadow-orange-500/10 border border-orange-100 space-y-4 sm:space-y-6">
                     <div className="flex items-center gap-2">
                       <span className="bg-orange-500 text-white text-[8px] sm:text-[10px] font-black px-2 sm:px-3 py-1 rounded-full uppercase tracking-widest">Próxima Comida</span>
                       <span className="text-[8px] sm:text-[10px] font-black text-gray-400 uppercase tracking-widest">
@@ -805,26 +810,95 @@ export default function App() {
                     </div>
 
                     <div className="flex gap-2 sm:gap-3">
-                      <button 
-                        onClick={handleCook}
-                        className="flex-1 bg-white border-2 border-[#1A1C1E] text-[#1A1C1E] py-3 sm:py-4 rounded-xl sm:rounded-2xl font-black text-xs sm:text-base flex items-center justify-center gap-2 hover:bg-gray-50 transition-all active:scale-95"
-                      >
-                        <CheckCircle2 className="w-4 h-4 sm:w-5 sm:h-5" />
-                        Cocinado
-                      </button>
-                      <button 
-                        onClick={() => {
-                          if (nextMeal?.recipe) {
-                            setSelectedRecipeForDetails(nextMeal.recipe);
-                            navigateTo('recipe-details');
-                          }
-                        }}
-                        className="flex-1 bg-[#1A1C1E] text-white py-3 sm:py-4 rounded-xl sm:rounded-2xl font-black text-xs sm:text-base flex items-center justify-center gap-2 hover:bg-black transition-all active:scale-95 shadow-lg shadow-black/10"
-                      >
-                        Cocinar
-                        <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5" />
-                      </button>
+                      {!hasConfirmedShoppingList && hasShoppingListReady ? (
+                        <div className="flex-1 flex flex-col items-center justify-center gap-2 py-3 px-4 bg-amber-50 border-2 border-amber-200 rounded-xl sm:rounded-2xl">
+                          <p className="text-amber-700 font-black text-xs text-center leading-tight">Confirma tu lista de compras primero</p>
+                          <button
+                            onClick={() => setView('shopping-list')}
+                            className="text-amber-600 underline font-black text-[10px] uppercase tracking-widest hover:text-amber-800 transition-colors"
+                          >
+                            Ir a Lista de Compras →
+                          </button>
+                        </div>
+                      ) : (
+                        <>
+                          <motion.button 
+                            onClick={() => {
+                              setIsCookingAnimating(true);
+                              setTimeout(() => {
+                                handleCook();
+                                setIsCookingAnimating(false);
+                              }, 1200);
+                            }}
+                            disabled={isCookingAnimating}
+                            animate={isCookingAnimating ? { 
+                              backgroundColor: '#10B981', 
+                              borderColor: '#10B981', 
+                              color: '#ffffff',
+                              scale: [1, 0.95, 1.05, 1]
+                            } : {}}
+                            transition={{ duration: 0.5 }}
+                            className={`flex-1 border-2 border-[#1A1C1E] text-[#1A1C1E] py-3 sm:py-4 rounded-xl sm:rounded-2xl font-black text-xs sm:text-base flex items-center justify-center gap-2 transition-all overflow-hidden relative ${isCookingAnimating ? 'pointer-events-none' : 'bg-white hover:bg-gray-50 active:scale-95'}`}
+                          >
+                            <motion.div
+                              initial={false}
+                              animate={isCookingAnimating ? { rotate: [0, -20, 360], scale: [1, 1.4, 1] } : {}}
+                              transition={{ duration: 0.6, delay: 0.1 }}
+                            >
+                              <CheckCircle2 className="w-4 h-4 sm:w-5 sm:h-5" />
+                            </motion.div>
+                            <div className="relative w-[70px] sm:w-[84px] h-[20px] sm:h-[24px] flex items-center justify-center">
+                              <motion.span
+                                initial={false}
+                                animate={isCookingAnimating ? { opacity: 0, y: -20 } : { opacity: 1, y: 0 }}
+                                className="absolute inset-0 flex items-center justify-center"
+                              >
+                                Cocinado
+                              </motion.span>
+                              <motion.span
+                                initial={false}
+                                animate={isCookingAnimating ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
+                                className="absolute inset-0 flex items-center justify-center"
+                              >
+                                ¡Hecho!
+                              </motion.span>
+                            </div>
+                          </motion.button>
+                          <button 
+                            onClick={() => {
+                              if (nextMeal?.recipe) {
+                                setSelectedRecipeForDetails(nextMeal.recipe);
+                                navigateTo('recipe-details');
+                              }
+                            }}
+                            className="flex-1 bg-[#1A1C1E] text-white py-3 sm:py-4 rounded-xl sm:rounded-2xl font-black text-xs sm:text-base flex items-center justify-center gap-2 hover:bg-black transition-all active:scale-95 shadow-lg shadow-black/10"
+                          >
+                            Cocinar
+                            <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5" />
+                          </button>
+                        </>
+                      )}
                     </div>
+
+                    {/* OVERLAY FOR COMPLETED DAY */}
+                    {nextMeal.day !== getCurrentDay() && (
+                      <div className="absolute inset-x-0 bottom-0 h-full bg-gradient-to-t from-white via-white/95 to-white/40 backdrop-blur-[2px] z-30 flex flex-col items-center justify-end pb-8 sm:pb-12 px-6 text-center animate-in fade-in duration-700">
+                        <div className="bg-green-100 w-12 h-12 rounded-full flex items-center justify-center mb-3 shadow-inner border border-green-200">
+                          <CheckCircle2 className="w-6 h-6 text-green-500" />
+                        </div>
+                        <h4 className="text-xl font-black text-gray-900 mb-2 tracking-tight">¡Todo listo por hoy!</h4>
+                        <p className="text-sm font-bold text-gray-500 mb-6 max-w-[250px]">Has completado todas tus comidas. Ésta es tu primera comida de mañana.</p>
+                        <button 
+                          onClick={() => {
+                            setView('calendar');
+                          }}
+                          className="bg-gray-900 hover:bg-black text-white px-6 py-4 rounded-[20px] font-black text-sm shadow-xl shadow-black/20 transition-all active:scale-95 flex items-center gap-2 group"
+                        >
+                          Ver mi plan semanal
+                          <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                        </button>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <div className="bg-white rounded-[40px] p-10 border-2 border-dashed border-green-200 text-center space-y-6 shadow-sm">
@@ -1139,65 +1213,11 @@ export default function App() {
               <div className="space-y-12">
                 {searchQuery === '' ? (
                   <>
-                    {/* Featured Hero for the current step */}
-                    {filteredRecipes.length > 0 && (
-                      <motion.div 
-                        initial={{ opacity: 0, scale: 0.95 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        className="relative h-[280px] sm:h-[350px] md:h-[400px] rounded-[30px] sm:rounded-[40px] overflow-hidden shadow-2xl group cursor-pointer"
-                        onClick={() => handleSelectRecipe(filteredRecipes[0].id)}
-                      >
-                        <img 
-                          src={filteredRecipes[0].image} 
-                          className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105" 
-                          referrerPolicy="no-referrer"
-                        />
-                        <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/40 to-transparent" />
-                        
-                        {/* Selection Indicator on Hero */}
-                        {setupSelectedPool.some(item => item.id === filteredRecipes[0].id) && (
-                          <div className="absolute top-4 right-4 sm:top-6 sm:right-6 bg-orange-500 text-white p-2 sm:p-3 rounded-full shadow-2xl border-2 sm:border-4 border-white/20">
-                            <CheckCircle2 className="w-4 h-4 sm:w-6 sm:h-6" />
-                          </div>
-                        )}
 
-                        <div className="absolute inset-0 flex flex-col justify-center p-6 sm:p-8 md:p-12 space-y-3 sm:space-y-6 max-w-2xl">
-                          <div className="flex items-center gap-2">
-                            <span className="bg-orange-500 text-white text-[8px] sm:text-[10px] font-black px-2 sm:px-3 py-1 rounded-full uppercase tracking-widest">
-                              Recomendado
-                            </span>
-                            <span className="text-white/60 text-[8px] sm:text-[10px] font-black uppercase tracking-widest">
-                              • {filteredRecipes[0].category}
-                            </span>
-                          </div>
-                          <h3 className="text-3xl sm:text-4xl md:text-6xl font-black text-white tracking-tighter leading-tight sm:leading-none">
-                            {filteredRecipes[0].name}
-                          </h3>
-                          <p className="text-white/70 text-xs sm:text-base md:text-lg font-medium line-clamp-2">
-                            {filteredRecipes[0].description}
-                          </p>
-                          <div className="flex items-center gap-4 pt-2 sm:pt-4">
-                            <button className="bg-white text-black px-5 py-2.5 sm:px-8 sm:py-4 rounded-xl sm:rounded-2xl font-black text-[10px] sm:text-sm uppercase tracking-widest hover:bg-orange-500 hover:text-white transition-all flex items-center gap-2">
-                              {setupSelectedPool.some(item => item.id === filteredRecipes[0].id) ? 'Deseleccionar' : 'Seleccionar'}
-                              <ArrowRight className="w-3 h-3 sm:w-4 sm:h-4" />
-                            </button>
-                          </div>
-                        </div>
-                      </motion.div>
-                    )}
 
                     {/* Cocinable Ahora */}
-                    {cookableNow.length > 0 && searchQuery === '' && (
-                      <div className="space-y-4">
-                        <div className="bg-green-50 border border-green-100 rounded-2xl p-4 sm:p-6 mb-2 text-left">
-                          <h3 className="text-sm font-black text-green-800 uppercase tracking-widest flex items-center gap-2">
-                            <Info className="w-4 h-4" />
-                            Insights de tu Despensa
-                          </h3>
-                          <p className="text-green-700 font-medium text-sm mt-1">
-                            Tienes ingredientes suficientes para cocinar {cookableNow.length} {cookableNow.length === 1 ? 'receta' : 'recetas'} en este momento. ¡Aprovecha lo que ya tienes!
-                          </p>
-                        </div>
+                    {cookableNow.filter(r => r.category === (setupStep === 1 ? 'Breakfast' : setupStep === 2 ? 'Lunch' : 'Dinner')).length > 0 && searchQuery === '' && (
+                      <div className="space-y-4 mt-6">
                         <div className="flex items-center justify-between px-1 sm:px-2">
                           <h3 className="text-xl sm:text-2xl md:text-3xl font-black tracking-tight flex items-center gap-2">
                             <ChefHat className="w-6 h-6 text-orange-500"/>
@@ -1205,7 +1225,10 @@ export default function App() {
                           </h3>
                         </div>
                         <div className="flex gap-3 sm:gap-4 overflow-x-auto no-scrollbar pb-4 px-1 -mx-1 text-left">
-                          {cookableNow.map(recipe => {
+                          {cookableNow.filter(r => {
+                            const mappedCat = setupStep == 1 ? 'Breakfast' : setupStep == 2 ? 'Lunch' : 'Dinner';
+                            return r.category === mappedCat;
+                          }).map(recipe => {
                             let missingList: string[] = [];
                             let costToCook = 0;
                             recipe.ingredients.forEach(i => {
@@ -1257,6 +1280,15 @@ export default function App() {
                                     </div>
                                   </div>
                                 </div>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setSelectedRecipeForModal(recipe);
+                                  }}
+                                  className="absolute top-3 right-3 z-20 p-2 bg-black/40 backdrop-blur-md rounded-xl text-white hover:bg-orange-500 transition-all opacity-0 group-hover:opacity-100"
+                                >
+                                  <Search className="w-4 h-4" />
+                                </button>
                               </motion.div>
                             );
                           })}
@@ -1591,20 +1623,27 @@ export default function App() {
                               setNewPlanDescription('');
                               setIsSavingPlanModalOpen(true);
                             }}
-                            className="flex items-center gap-2 bg-white border border-gray-200 px-4 sm:px-6 py-3 rounded-2xl font-black text-sm hover:bg-gray-50 transition-all active:scale-95 shadow-sm"
+                            className="p-3 bg-white border border-gray-200 rounded-2xl shadow-sm hover:bg-gray-50 transition-all active:scale-95"
+                            title="Guardar Plan"
                           >
-                            <Save className="w-4 h-4 text-orange-500" />
-                            <span className="hidden sm:inline">Guardar Plan</span>
+                            <Save className="w-5 h-5 text-orange-500" />
                           </button>
                           <button 
                             onClick={() => {
                               setIsEditingPlan(true);
                               setActiveDay(getCurrentDay());
                             }}
-                            className="flex items-center gap-2 bg-white border border-gray-200 px-4 sm:px-6 py-3 rounded-2xl font-black text-sm hover:bg-gray-50 transition-all active:scale-95 shadow-sm"
+                            className="p-3 bg-white border border-gray-200 rounded-2xl shadow-sm hover:bg-gray-50 transition-all active:scale-95"
+                            title="Editar Plan"
                           >
-                            <Edit3 className="w-4 h-4 text-orange-500" />
-                            <span className="hidden sm:inline">Editar Plan</span>
+                            <Edit3 className="w-5 h-5 text-orange-500" />
+                          </button>
+                          <button 
+                            onClick={() => setIsDeletePlanModalOpen(true)}
+                            className="p-3 bg-white border border-red-200 text-red-500 rounded-2xl shadow-sm hover:bg-red-50 transition-all active:scale-95"
+                            title="Eliminar Plan"
+                          >
+                            <Trash2 className="w-5 h-5" />
                           </button>
                         </>
                       )}
@@ -1813,7 +1852,7 @@ export default function App() {
                     <motion.div 
                       initial={{ opacity: 0, scale: 0.95 }}
                       animate={{ opacity: 1, scale: 1 }}
-                      className="relative h-[160px] sm:h-[350px] md:h-[400px] rounded-[24px] sm:rounded-[40px] overflow-hidden shadow-2xl group cursor-pointer"
+                      className="relative h-[140px] sm:h-[220px] md:h-[260px] rounded-[24px] overflow-hidden shadow-2xl group cursor-pointer"
                       onClick={() => {
                         const featured = RECIPES[0];
                         if (selectedSlot) {
@@ -1830,7 +1869,7 @@ export default function App() {
                         referrerPolicy="no-referrer"
                       />
                       <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/40 to-transparent" />
-                      <div className="absolute inset-0 flex flex-col justify-center p-4 sm:p-8 md:p-12 space-y-2 sm:space-y-6 max-w-2xl">
+                      <div className="absolute inset-0 flex flex-col justify-center p-4 sm:p-6 md:p-8 space-y-2 sm:space-y-4 max-w-2xl">
                         <div className="flex items-center gap-2">
                           <span className="bg-orange-500 text-white text-[7px] sm:text-[10px] font-black px-2 sm:px-3 py-0.5 sm:py-1 rounded-full uppercase tracking-widest">
                             Destacado
@@ -1839,14 +1878,14 @@ export default function App() {
                             • {RECIPES[0].category}
                           </span>
                         </div>
-                        <h3 className="text-xl sm:text-4xl md:text-6xl font-black text-white tracking-tighter leading-tight sm:leading-none">
+                        <h3 className="text-lg sm:text-3xl md:text-4xl font-black text-white tracking-tighter leading-tight sm:leading-none">
                           {RECIPES[0].name}
                         </h3>
-                        <p className="text-white/70 text-[10px] sm:text-base md:text-lg font-medium line-clamp-1 sm:line-clamp-2">
+                        <p className="text-white/70 text-[10px] sm:text-sm md:text-base font-medium line-clamp-1 sm:line-clamp-2">
                           {RECIPES[0].description}
                         </p>
-                        <div className="flex items-center gap-4 pt-1 sm:pt-4">
-                          <button className="bg-white text-black px-4 py-1.5 sm:px-8 sm:py-4 rounded-lg sm:rounded-2xl font-black text-[8px] sm:text-sm uppercase tracking-widest hover:bg-orange-500 hover:text-white transition-all flex items-center gap-2">
+                        <div className="flex items-center gap-4 pt-1 sm:pt-2">
+                          <button className="bg-white text-black px-4 py-1.5 sm:px-6 sm:py-2.5 rounded-lg sm:rounded-xl font-black text-[8px] sm:text-xs uppercase tracking-widest hover:bg-orange-500 hover:text-white transition-all flex items-center gap-2">
                             {selectedSlot ? 'Seleccionar' : 'Ver Detalles'}
                             <ArrowRight className="w-3 h-3 sm:w-4 sm:h-4" />
                           </button>
@@ -1856,16 +1895,7 @@ export default function App() {
 
                     {/* Cocinable Ahora */}
                     {cookableNow.length > 0 && searchQuery === '' && (
-                      <div className="space-y-4">
-                        <div className="bg-green-50 border border-green-100 rounded-2xl p-4 sm:p-6 mb-2 text-left">
-                          <h3 className="text-sm font-black text-green-800 uppercase tracking-widest flex items-center gap-2">
-                            <Info className="w-4 h-4" />
-                            Insights de tu Despensa
-                          </h3>
-                          <p className="text-green-700 font-medium text-sm mt-1">
-                            Tienes ingredientes suficientes para cocinar {cookableNow.length} {cookableNow.length === 1 ? 'receta' : 'recetas'} en este momento. ¡Aprovecha lo que ya tienes!
-                          </p>
-                        </div>
+                      <div className="space-y-4 mt-6">
                         <div className="flex items-center justify-between px-1 sm:px-2">
                           <h3 className="text-xl sm:text-2xl md:text-3xl font-black tracking-tight flex items-center gap-2">
                             <ChefHat className="w-6 h-6 text-orange-500"/>
@@ -1930,6 +1960,15 @@ export default function App() {
                                     </div>
                                   </div>
                                 </div>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setSelectedRecipeForModal(recipe);
+                                  }}
+                                  className="absolute top-3 right-3 z-20 p-2 bg-black/40 backdrop-blur-md rounded-xl text-white hover:bg-orange-500 transition-all opacity-0 group-hover:opacity-100"
+                                >
+                                  <Search className="w-4 h-4" />
+                                </button>
                               </motion.div>
                             );
                           })}
@@ -2232,11 +2271,13 @@ export default function App() {
                             });
                             return next;
                           });
-                          showSnackbar('Despensa actualizada con los ingresos de compra.');
-                          setView('inventory');
+                          setHasConfirmedShoppingList(true);
+                          showSnackbar('¡Listo! Ya puedes empezar a cocinar 🍳');
+                          setView('dashboard');
                         }}
-                        className="w-full bg-orange-500 text-white py-4 rounded-xl font-black shadow-lg shadow-orange-500/20 hover:scale-[1.02] transition-transform active:scale-95"
+                        className="w-full bg-orange-500 text-white py-4 rounded-xl font-black shadow-lg shadow-orange-500/20 hover:scale-[1.02] transition-transform active:scale-95 flex items-center justify-center gap-2"
                       >
+                        <CheckCircle2 className="w-5 h-5" />
                         Confirmar Ingreso (Smart Check-in)
                       </button>
                     </div>
@@ -2387,58 +2428,71 @@ export default function App() {
                   const list = Array.from(allIngs.values()).sort((a,b) => a.name.localeCompare(b.name));
                   
                   return (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div className="flex flex-col bg-white border border-gray-200 rounded-3xl overflow-hidden shadow-sm">
                       {list.map(ing => {
                         const invItem = inventory[ing.name.toLowerCase()];
                         const currentAmount = invItem ? invItem.amount : 0;
                         return (
-                          <div key={ing.name} className="flex flex-col gap-3 p-4 bg-gray-50 rounded-2xl border border-gray-100/50 hover:border-orange-200 transition-colors group">
-                             <div className="flex justify-between items-center">
-                               <span className="font-bold text-gray-700">{ing.name}</span>
-                               <span className="text-[10px] font-black uppercase tracking-widest bg-gray-200 text-gray-500 px-2 py-1 rounded-lg">{ing.unit}</span>
-                             </div>
-                             <div className="flex items-center gap-3">
-                               <button 
-                                 onClick={() => setInventory(prev => {
-                                   const next = {...prev};
-                                   const key = ing.name.toLowerCase();
-                                   if (!next[key]) next[key] = {name: ing.name, amount: 0, unit: ing.unit};
-                                   next[key].amount = Math.max(0, next[key].amount - 1);
-                                   return next;
-                                 })}
-                                 className="w-10 h-10 rounded-full bg-white border border-gray-200 flex items-center justify-center hover:bg-gray-100 transition-colors shadow-sm text-gray-400 hover:text-red-500"
-                               >
-                                 <Minus className="w-5 h-5"/>
-                               </button>
-                               <input 
-                                 type="number" 
-                                 min="0"
-                                 value={currentAmount || ''}
-                                 placeholder="0"
-                                 onChange={(e) => {
-                                   const val = parseFloat(e.target.value) || 0;
-                                   setInventory(prev => {
-                                     const next = {...prev};
-                                     const key = ing.name.toLowerCase();
-                                     next[key] = { name: ing.name, amount: Math.max(0, val), unit: ing.unit };
-                                     return next;
-                                   });
-                                 }}
-                                 className="flex-1 text-center font-black text-xl bg-white border border-gray-200 rounded-xl py-2 focus:ring-2 focus:ring-orange-500 outline-none"
-                               />
-                               <button 
-                                 onClick={() => setInventory(prev => {
-                                   const next = {...prev};
-                                   const key = ing.name.toLowerCase();
-                                   if (!next[key]) next[key] = {name: ing.name, amount: 0, unit: ing.unit};
-                                   next[key].amount = Math.max(0, next[key].amount) + 1;
-                                   return next;
-                                 })}
-                                 className="w-10 h-10 rounded-full bg-white border border-gray-200 flex items-center justify-center hover:bg-gray-100 transition-colors shadow-sm text-gray-400 hover:text-green-500"
-                               >
-                                 <Plus className="w-5 h-5"/>
-                               </button>
-                             </div>
+                          <div key={ing.name} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 py-4 px-5 sm:px-6 hover:bg-gray-50/80 border-b border-gray-100 last:border-b-0 transition-colors group">
+                            
+                            <div className="flex items-center gap-3">
+                              <span className="font-bold text-gray-800 text-base sm:text-lg">{ing.name}</span>
+                              <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-widest bg-gray-100 text-gray-500 px-2.5 py-1 rounded-lg border border-gray-200">
+                                {ing.unit}
+                              </span>
+                            </div>
+
+                            <div className="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto">
+                              <div className="flex items-center bg-white border border-gray-200 rounded-[14px] overflow-hidden shadow-sm group-hover:border-orange-300 transition-colors">
+                                <button 
+                                  onClick={() => setInventory(prev => {
+                                    const next = {...prev};
+                                    const key = ing.name.toLowerCase();
+                                    if (!next[key]) next[key] = {name: ing.name, amount: 0, unit: ing.unit};
+                                    next[key].amount = Math.max(0, next[key].amount - 1);
+                                    return next;
+                                  })}
+                                  className="w-12 h-12 flex items-center justify-center bg-gray-50 hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors"
+                                >
+                                  <Minus className="w-5 h-5"/>
+                                </button>
+                                
+                                <div className="w-px h-8 bg-gray-200" />
+                                
+                                <input 
+                                  type="number" 
+                                  min="0"
+                                  value={currentAmount || ''}
+                                  placeholder="0"
+                                  onChange={(e) => {
+                                    const val = parseFloat(e.target.value) || 0;
+                                    setInventory(prev => {
+                                      const next = {...prev};
+                                      const key = ing.name.toLowerCase();
+                                      next[key] = { name: ing.name, amount: Math.max(0, val), unit: ing.unit };
+                                      return next;
+                                    });
+                                  }}
+                                  className="w-20 text-center font-black text-xl bg-transparent border-none focus:ring-0 outline-none p-0 text-gray-800"
+                                />
+                                
+                                <div className="w-px h-8 bg-gray-200" />
+                                
+                                <button 
+                                  onClick={() => setInventory(prev => {
+                                    const next = {...prev};
+                                    const key = ing.name.toLowerCase();
+                                    if (!next[key]) next[key] = {name: ing.name, amount: 0, unit: ing.unit};
+                                    next[key].amount = Math.max(0, next[key].amount) + 1;
+                                    return next;
+                                  })}
+                                  className="w-12 h-12 flex items-center justify-center bg-gray-50 hover:bg-green-50 text-gray-400 hover:text-green-500 transition-colors"
+                                >
+                                  <Plus className="w-5 h-5"/>
+                                </button>
+                              </div>
+                            </div>
+
                           </div>
                         );
                       })}
@@ -2469,6 +2523,10 @@ export default function App() {
                 } else {
                   setIsEditingPlan(false);
                   setHasFinalizedInitialPlan(true);
+                  setHasShoppingListReady(true);
+                  setHasConfirmedShoppingList(false);
+                  setShowShoppingListBanner(true);
+                  setTimeout(() => setShowShoppingListBanner(false), 6000);
                   setView('dashboard');
                 }
               }}
@@ -2516,13 +2574,122 @@ export default function App() {
           <span className="text-[8px] font-black uppercase tracking-widest">Despensa</span>
         </button>
         <button 
-          onClick={() => setView('shopping-list')}
-          className={`flex flex-col items-center gap-0.5 transition-all duration-300 ${view === 'shopping-list' ? 'text-orange-500 scale-110' : 'text-gray-400 hover:text-gray-600'}`}
+          onClick={() => {
+            setView('shopping-list');
+            setHasShoppingListReady(false);
+          }}
+          className={`flex flex-col items-center gap-0.5 transition-all duration-300 relative ${view === 'shopping-list' ? 'text-orange-500 scale-110' : 'text-gray-400 hover:text-gray-600'}`}
         >
-          <ListTodo className={`w-5 h-5 ${view === 'shopping-list' ? 'fill-orange-50' : ''}`} />
+          <div className="relative">
+            <ListTodo className={`w-5 h-5 ${view === 'shopping-list' ? 'fill-orange-50' : ''}`} />
+            {hasShoppingListReady && (
+              <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white animate-pulse" />
+            )}
+          </div>
           <span className="text-[8px] font-black uppercase tracking-widest">Lista</span>
         </button>
       </nav>
+
+      {/* Shopping List Ready Banner */}
+      <AnimatePresence>
+        {showShoppingListBanner && (
+          <motion.div
+            initial={{ opacity: 0, y: 80, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 80, scale: 0.9 }}
+            transition={{ type: 'spring', bounce: 0.4 }}
+            className="fixed bottom-28 sm:bottom-36 left-4 right-4 sm:left-auto sm:right-6 sm:w-96 z-50"
+          >
+            <div className="bg-gray-900 text-white rounded-[28px] p-5 shadow-2xl shadow-black/40 flex items-start gap-4 border border-white/10">
+              <div className="w-12 h-12 flex-shrink-0 bg-orange-500 rounded-2xl flex items-center justify-center shadow-lg shadow-orange-500/40">
+                <ShoppingCart className="w-6 h-6 text-white" />
+              </div>
+              <div className="flex-1 space-y-1">
+                <p className="font-black text-base leading-tight">¡Tu lista de compras está lista! 🛒</p>
+                <p className="text-gray-400 text-xs font-medium">Confírmala antes de empezar a cocinar</p>
+              </div>
+              <button
+                onClick={() => {
+                  setShowShoppingListBanner(false);
+                  setView('shopping-list');
+                  setHasShoppingListReady(false);
+                }}
+                className="flex-shrink-0 bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-xl font-black text-xs transition-all active:scale-95 mt-0.5"
+              >
+                Ver
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Delete Plan Confirmation Modal */}
+      <AnimatePresence>
+        {isDeletePlanModalOpen && (
+          <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 sm:p-6">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsDeletePlanModalOpen(false)}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="relative w-full max-w-md bg-white rounded-[32px] overflow-hidden shadow-2xl p-8 space-y-6"
+            >
+              {/* Icon */}
+              <div className="flex flex-col items-center text-center space-y-4">
+                <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center border-2 border-red-100">
+                  <Trash2 className="w-7 h-7 text-red-500" />
+                </div>
+                <div className="space-y-2">
+                  <h3 className="text-2xl font-black tracking-tight text-gray-900">¿Eliminar plan?</h3>
+                  <p className="text-gray-500 font-medium leading-relaxed max-w-[280px] mx-auto">
+                    Esta acción eliminará permanentemente tu plan semanal actual.
+                  </p>
+                </div>
+                <div className="bg-red-50 border border-red-200 rounded-2xl px-4 py-3 w-full">
+                  <p className="text-red-600 font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2">
+                    <span>⚠️</span> Esta acción no se puede revertir
+                  </p>
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setIsDeletePlanModalOpen(false)}
+                  className="flex-1 py-4 rounded-2xl font-black text-sm text-gray-600 bg-gray-100 hover:bg-gray-200 transition-all active:scale-95"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={() => {
+                    setWeeklyPlan(prev => {
+                      const empty: WeeklyPlan = {};
+                      DAYS.forEach(d => empty[d] = { Desayuno: null, Almuerzo: null, Cena: null });
+                      return empty;
+                    });
+                    setCookedMeals(new Set());
+                    setHasFinalizedInitialPlan(false);
+                    setIsEditingPlan(false);
+                    setIsDeletePlanModalOpen(false);
+                    setView('setup');
+                    showSnackbar('Plan eliminado correctamente.');
+                  }}
+                  className="flex-[1.5] py-4 rounded-2xl font-black text-sm text-white bg-red-500 hover:bg-red-600 transition-all active:scale-95 shadow-lg shadow-red-500/25 flex items-center justify-center gap-2"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Sí, eliminar plan
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* Save Plan Modal */}
       <AnimatePresence>
