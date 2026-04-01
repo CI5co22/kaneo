@@ -883,7 +883,7 @@ export default function App() {
                                 <CheckCircle2 className="w-6 h-6 text-green-500" />
                               </div>
                               <h4 className="text-xl font-black text-gray-900 mb-2 tracking-tight">¡Todo listo por hoy!</h4>
-                              <p className="text-sm font-bold text-gray-500 mb-6 max-w-[250px]">Has completado todas tus comidas. Ésta es tu primera comida de mañana.</p>
+                              <p className="text-sm font-bold text-gray-500 mb-6 max-w-[250px]">Has completado todas tus comidas. Esta es tu primera comida de mañana.</p>
                               <button
                                 onClick={() => {
                                   setView('calendar');
