@@ -321,6 +321,7 @@ export default function App() {
   };
 
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedSection, setSelectedSection] = useState<'all' | 'Breakfast' | 'Lunch' | 'Dinner' | 'favorites' | 'wishlist'>('all');
   const [selectedSlot, setSelectedSlot] = useState<{ day: DayOfWeek, time: MealTime } | null>(null);
 
   const [selectedRecipeForPlacement, setSelectedRecipeForPlacement] = useState<Recipe | null>(null);
@@ -402,7 +403,7 @@ export default function App() {
   const filteredRecipes = useMemo(() => {
     let base = RECIPES;
 
-    // Filter by category if in setup or on-the-go slot selection
+    // Filter by setup step or selected slot first
     if (view === 'setup') {
       const catMap = { breakfast: 'Breakfast', lunch: 'Lunch', dinner: 'Dinner' };
       base = base.filter(r => r.category === catMap[setupStep]);
@@ -411,21 +412,21 @@ export default function App() {
       base = base.filter(r => r.category === catMap[selectedSlot.time]);
     }
 
-    if (searchQuery.toLowerCase() === 'favoritos') {
+    // Filter by selected section (NEW LOGIC)
+    if (selectedSection === 'favorites') {
       base = base.filter(r => favorites.has(r.id));
-    }
-
-    if (searchQuery.toLowerCase() === 'guardados') {
+    } else if (selectedSection === 'wishlist') {
       base = base.filter(r => wishlist.has(r.id));
+    } else if (selectedSection !== 'all') {
+      base = base.filter(r => r.category === selectedSection);
     }
 
+    // Then apply search query filter
     return base.filter(recipe => {
       const matchesSearch = recipe.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         recipe.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
         recipe.ingredients.some(i => i.name.toLowerCase().includes(searchQuery.toLowerCase()));
-      return matchesSearch ||
-        (searchQuery.toLowerCase() === 'favoritos' && favorites.has(recipe.id)) ||
-        (searchQuery.toLowerCase() === 'guardados' && wishlist.has(recipe.id));
+      return matchesSearch;
     }).sort((a, b) => {
       const aMatches = a.ingredients.filter(i => {
         const inv = inventory[i.name.toLowerCase()];
@@ -437,7 +438,7 @@ export default function App() {
       }).length / b.ingredients.length;
       return bMatches - aMatches;
     });
-  }, [searchQuery, inventory, view, setupStep, selectedSlot, favorites]);
+  }, [searchQuery, inventory, view, setupStep, selectedSlot, favorites, wishlist, selectedSection]);
 
   const totalCost = useMemo(() => {
     let cost = 0;
@@ -572,7 +573,7 @@ export default function App() {
       <aside className="hidden lg:flex flex-col w-72 bg-white border-r border-gray-100 sticky top-0 h-screen p-8 space-y-10 z-30">
         {/* Branding */}
         <div className="flex items-center gap-3 px-2">
-          <img src={kaneoLogo} alt="Kaneo" className="w-10 h-10 object-contain" />
+          <img src={kaneoLogo} alt="Kaneo" className="w-12 h-12 object-contain" />
           <span className="font-black text-xl tracking-tighter">Kaneo</span>
         </div>
 
@@ -1179,22 +1180,22 @@ export default function App() {
                     {/* Quick Filters */}
                     <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2">
                       <button
-                        onClick={() => setSearchQuery('')}
-                        className={`flex-shrink-0 px-6 py-2.5 rounded-full text-xs font-black uppercase tracking-widest border transition-all ${searchQuery === '' ? 'bg-[#1A1C1E] text-white border-[#1A1C1E] shadow-xl' : 'bg-white text-gray-400 border-gray-100 hover:border-orange-200'
+                        onClick={() => setSelectedSection('all')}
+                        className={`flex-shrink-0 px-6 py-2.5 rounded-full text-xs font-black uppercase tracking-widest border transition-all ${selectedSection === 'all' ? 'bg-[#1A1C1E] text-white border-[#1A1C1E] shadow-xl' : 'bg-white text-gray-400 border-gray-100 hover:border-orange-200'
                           }`}
                       >
                         Todas
                       </button>
                       <button
-                        onClick={() => setSearchQuery('favoritos')}
-                        className={`flex-shrink-0 px-6 py-2.5 rounded-full text-xs font-black uppercase tracking-widest border transition-all ${searchQuery.toLowerCase() === 'favoritos' ? 'bg-orange-500 text-white border-orange-500 shadow-xl shadow-orange-500/20' : 'bg-white text-gray-400 border-gray-100 hover:border-orange-200'
+                        onClick={() => setSelectedSection('favorites')}
+                        className={`flex-shrink-0 px-6 py-2.5 rounded-full text-xs font-black uppercase tracking-widest border transition-all ${selectedSection === 'favorites' ? 'bg-orange-500 text-white border-orange-500 shadow-xl shadow-orange-500/20' : 'bg-white text-gray-400 border-gray-100 hover:border-orange-200'
                           }`}
                       >
                         Favoritos
                       </button>
                       <button
-                        onClick={() => setSearchQuery('guardados')}
-                        className={`flex-shrink-0 px-6 py-2.5 rounded-full text-xs font-black uppercase tracking-widest border transition-all ${searchQuery.toLowerCase() === 'guardados' ? 'bg-orange-500 text-white border-orange-500 shadow-xl shadow-orange-500/20' : 'bg-white text-gray-400 border-gray-100 hover:border-orange-200'
+                        onClick={() => setSelectedSection('wishlist')}
+                        className={`flex-shrink-0 px-6 py-2.5 rounded-full text-xs font-black uppercase tracking-widest border transition-all ${selectedSection === 'wishlist' ? 'bg-orange-500 text-white border-orange-500 shadow-xl shadow-orange-500/20' : 'bg-white text-gray-400 border-gray-100 hover:border-orange-200'
                           }`}
                       >
                         Próximos
@@ -1203,7 +1204,7 @@ export default function App() {
 
                     {/* Search & Hero / Grid */}
                     <div className="space-y-12">
-                      {searchQuery === '' ? (
+                      {searchQuery === '' && selectedSection === 'all' ? (
                         <>
 
 
@@ -1385,7 +1386,7 @@ export default function App() {
                         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4 pb-32">
                           {filteredRecipes.map(recipe => {
                             const isSelected = setupSelectedPool.some(item => item.id === recipe.id);
-                            const matchCount = recipe.ingredients.filter(i => inventory.has(i.name.toLowerCase())).length;
+                            const matchCount = recipe.ingredients.filter(i => inventory[i.name.toLowerCase()]?.amount >= i.amount).length;
                             return (
                               <motion.div
                                 layout
@@ -1445,6 +1446,20 @@ export default function App() {
                               </motion.div>
                             );
                           })}
+                          {filteredRecipes.length === 0 && (
+                            <div className="col-span-full py-20 text-center space-y-4">
+                              <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mx-auto">
+                                <Search className="w-8 h-8 text-gray-200" />
+                              </div>
+                              <p className="text-sm text-gray-400 font-medium">
+                                No encontramos {searchQuery !== '' ? `"${searchQuery}"` : 'nada'} en {
+                                  selectedSection === 'favorites' ? 'tus favoritos' :
+                                  selectedSection === 'wishlist' ? 'tus guardados' :
+                                  'esta categoría'
+                                }.
+                              </p>
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
@@ -1785,31 +1800,31 @@ export default function App() {
                     {/* Quick Filters */}
                     <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2">
                       <button
-                        onClick={() => setSearchQuery('')}
-                        className={`flex-shrink-0 px-6 py-2.5 rounded-full text-xs font-black uppercase tracking-widest border transition-all ${searchQuery === '' ? 'bg-[#1A1C1E] text-white border-[#1A1C1E] shadow-xl' : 'bg-white text-gray-400 border-gray-100 hover:border-orange-200'
+                        onClick={() => setSelectedSection('all')}
+                        className={`flex-shrink-0 px-6 py-2.5 rounded-full text-xs font-black uppercase tracking-widest border transition-all ${selectedSection === 'all' ? 'bg-[#1A1C1E] text-white border-[#1A1C1E] shadow-xl' : 'bg-white text-gray-400 border-gray-100 hover:border-orange-200'
                           }`}
                       >
                         Todas
                       </button>
                       <button
-                        onClick={() => setSearchQuery('favoritos')}
-                        className={`flex-shrink-0 px-6 py-2.5 rounded-full text-xs font-black uppercase tracking-widest border transition-all ${searchQuery.toLowerCase() === 'favoritos' ? 'bg-orange-500 text-white border-orange-500 shadow-xl shadow-orange-500/20' : 'bg-white text-gray-400 border-gray-100 hover:border-orange-200'
+                        onClick={() => setSelectedSection('favorites')}
+                        className={`flex-shrink-0 px-6 py-2.5 rounded-full text-xs font-black uppercase tracking-widest border transition-all ${selectedSection === 'favorites' ? 'bg-orange-500 text-white border-orange-500 shadow-xl shadow-orange-500/20' : 'bg-white text-gray-400 border-gray-100 hover:border-orange-200'
                           }`}
                       >
                         Favoritos
                       </button>
                       <button
-                        onClick={() => setSearchQuery('guardados')}
-                        className={`flex-shrink-0 px-6 py-2.5 rounded-full text-xs font-black uppercase tracking-widest border transition-all ${searchQuery.toLowerCase() === 'guardados' ? 'bg-orange-500 text-white border-orange-500 shadow-xl shadow-orange-500/20' : 'bg-white text-gray-400 border-gray-100 hover:border-orange-200'
+                        onClick={() => setSelectedSection('wishlist')}
+                        className={`flex-shrink-0 px-6 py-2.5 rounded-full text-xs font-black uppercase tracking-widest border transition-all ${selectedSection === 'wishlist' ? 'bg-orange-500 text-white border-orange-500 shadow-xl shadow-orange-500/20' : 'bg-white text-gray-400 border-gray-100 hover:border-orange-200'
                           }`}
                       >
                         Próximos
                       </button>
-                      {['Breakfast', 'Lunch', 'Dinner'].map(cat => (
+                      {(['Breakfast', 'Lunch', 'Dinner'] as const).map(cat => (
                         <button
                           key={cat}
-                          onClick={() => setSearchQuery(cat)}
-                          className={`flex-shrink-0 px-6 py-2.5 rounded-full text-xs font-black uppercase tracking-widest border transition-all ${searchQuery.toLowerCase() === cat.toLowerCase() ? 'bg-orange-500 text-white border-orange-500 shadow-xl shadow-orange-500/20' : 'bg-white text-gray-400 border-gray-100 hover:border-orange-200'
+                          onClick={() => setSelectedSection(cat)}
+                          className={`flex-shrink-0 px-6 py-2.5 rounded-full text-xs font-black uppercase tracking-widest border transition-all ${selectedSection === cat ? 'bg-orange-500 text-white border-orange-500 shadow-xl shadow-orange-500/20' : 'bg-white text-gray-400 border-gray-100 hover:border-orange-200'
                             }`}
                         >
                           {cat === 'Breakfast' ? 'Desayunos' : cat === 'Lunch' ? 'Almuerzos' : 'Cenas'}
@@ -1819,7 +1834,7 @@ export default function App() {
 
                     {/* Search & Hero / Grid */}
                     <div className="space-y-4 sm:space-y-12">
-                      {searchQuery === '' ? (
+                      {searchQuery === '' && selectedSection === 'all' ? (
                         <>
                           {/* Featured Hero */}
                           <motion.div
@@ -2116,17 +2131,26 @@ export default function App() {
                         </div>
                       )}
 
-                      {filteredRecipes.length === 0 && searchQuery !== '' && (
+                      {(filteredRecipes.length === 0 && (searchQuery !== '' || selectedSection !== 'all')) && (
                         <div className="py-24 text-center space-y-6 bg-white rounded-[40px] border-2 border-dashed border-gray-100">
                           <div className="w-24 h-24 bg-gray-50 rounded-full flex items-center justify-center mx-auto">
                             <Search className="w-10 h-10 text-gray-200" />
                           </div>
                           <div className="space-y-2">
                             <h3 className="text-xl font-black tracking-tight">No se encontraron recetas</h3>
-                            <p className="text-sm text-gray-400 font-medium max-w-xs mx-auto">Prueba buscando por otro ingrediente o limpia los filtros.</p>
+                            <p className="text-sm text-gray-400 font-medium max-w-xs mx-auto">
+                              No encontramos nada {searchQuery !== '' ? `que coincida con "${searchQuery}"` : ''} en {
+                                selectedSection === 'all' ? 'todas las recetas' :
+                                selectedSection === 'Breakfast' ? 'desayunos' :
+                                selectedSection === 'Lunch' ? 'almuerzos' :
+                                selectedSection === 'Dinner' ? 'cenas' :
+                                selectedSection === 'favorites' ? 'tus favoritos' :
+                                'tus recetas guardadas'
+                              }.
+                            </p>
                           </div>
                           <button
-                            onClick={() => setSearchQuery('')}
+                            onClick={() => { setSearchQuery(''); setSelectedSection('all'); }}
                             className="text-orange-500 font-black text-xs uppercase tracking-widest hover:underline"
                           >
                             Ver todas las recetas
