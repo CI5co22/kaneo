@@ -27,10 +27,16 @@ import {
   FolderOpen,
   ListTodo,
   AlertCircle,
-  Info
+  Info,
+  LogOut,
+  User as UserIcon,
+  LogIn
 } from 'lucide-react';
 import { RECIPES } from './data';
 import { Recipe, WeeklyPlan, DayOfWeek, MealTime, SavedPlan, InventoryState } from './types';
+import { useAuth } from './contexts/AuthContext';
+import { db } from './firebase';
+import { doc, setDoc, getDoc, onSnapshot } from 'firebase/firestore';
 
 const DAYS: DayOfWeek[] = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
 const MEALS: MealTime[] = ['Desayuno', 'Almuerzo', 'Cena'];
@@ -173,28 +179,69 @@ const SidebarNavItem: React.FC<{ icon: any, label: string, active: boolean, onCl
 );
 
 export default function App() {
+  const { user, loginWithGoogle, logout, loading: authLoading } = useAuth();
+  
+  // --- STATE DECLARATIONS ---
+  
+  // Navigation & View Management
   const [view, setView] = useState<'dashboard' | 'calendar' | 'planner' | 'inventory' | 'setup' | 'recipe-details' | 'saved-plans' | 'shopping-list'>('dashboard');
   const [previousView, setPreviousView] = useState<'dashboard' | 'calendar' | 'planner' | 'inventory' | 'setup' | 'recipe-details' | 'saved-plans' | 'shopping-list'>('dashboard');
-  const [favorites, setFavorites] = useState<Set<string>>(() => {
-    const saved = localStorage.getItem('favorites');
-    return saved ? new Set(JSON.parse(saved)) : new Set();
-  });
-  const [wishlist, setWishlist] = useState<Set<string>>(() => {
-    const saved = localStorage.getItem('wishlist');
-    return saved ? new Set(JSON.parse(saved)) : new Set();
-  });
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isEditingPlan, setIsEditingPlan] = useState(false);
+  const [hasFinalizedInitialPlan, setHasFinalizedInitialPlan] = useState(false);
 
-  useEffect(() => {
-    localStorage.setItem('favorites', JSON.stringify(Array.from(favorites)));
-  }, [favorites]);
+  // Core App Data (Synchronized with Firestore)
+  const [favorites, setFavorites] = useState<Set<string>>(new Set());
+  const [wishlist, setWishlist] = useState<Set<string>>(new Set());
+  const [nickname, setNickname] = useState<string>('');
+  const [inventory, setInventory] = useState<InventoryState>({});
+  const [weeklyPlan, setWeeklyPlan] = useState<WeeklyPlan>(() => {
+    const plan: WeeklyPlan = {};
+    DAYS.forEach(day => { plan[day] = { Desayuno: null, Almuerzo: null, Cena: null }; });
+    return plan;
+  });
+  const [cookedMeals, setCookedMeals] = useState<Set<string>>(new Set());
+  const [savedPlans, setSavedPlans] = useState<SavedPlan[]>([]);
+  
+  // UI States & Modals
+  const [showNicknameModal, setShowNicknameModal] = useState(false);
+  const [isDataLoaded, setIsDataLoaded] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedSection, setSelectedSection] = useState<'all' | 'Breakfast' | 'Lunch' | 'Dinner' | 'favorites' | 'wishlist'>('all');
+  const [selectedSlot, setSelectedSlot] = useState<{ day: DayOfWeek, time: MealTime } | null>(null);
+  const [selectedRecipeForPlacement, setSelectedRecipeForPlacement] = useState<Recipe | null>(null);
+  const [activeCategory, setActiveCategory] = useState<Recipe['category']>('Breakfast');
+  const [activeDay, setActiveDay] = useState<DayOfWeek>('Lunes');
+  const [setupStep, setSetupStep] = useState<'breakfast' | 'lunch' | 'dinner'>('breakfast');
+  const [setupSelectedPool, setSetupSelectedPool] = useState<{ id: string, category: string }[]>([]);
+  const [selectedRecipeForDetails, setSelectedRecipeForDetails] = useState<Recipe | null>(null);
+  const [selectedRecipeForModal, setSelectedRecipeForModal] = useState<Recipe | null>(null);
+  const [isSavingPlanModalOpen, setIsSavingPlanModalOpen] = useState(false);
+  const [isDeletePlanModalOpen, setIsDeletePlanModalOpen] = useState(false);
+  const [hasShoppingListReady, setHasShoppingListReady] = useState(false);
+  const [hasConfirmedShoppingList, setHasConfirmedShoppingList] = useState(false);
+  const [showShoppingListBanner, setShowShoppingListBanner] = useState(false);
+  const [newPlanTitle, setNewPlanTitle] = useState('');
+  const [newPlanDescription, setNewPlanDescription] = useState('');
+  const [editingSavedPlan, setEditingSavedPlan] = useState<SavedPlan | null>(null);
+  const [checkedShoppingItems, setCheckedShoppingItems] = useState<Set<string>>(new Set());
+  const [isReselectingPool, setIsReselectingPool] = useState(false);
+  const [hasReachedCalendarOnce, setHasReachedCalendarOnce] = useState(false);
+  const [isShowingCalendarCTA, setIsShowingCalendarCTA] = useState(true);
+  const [isCookingAnimating, setIsCookingAnimating] = useState(false);
+  const [cookingMessage, setCookingMessage] = useState<string | null>(null);
 
-  useEffect(() => {
-    localStorage.setItem('wishlist', JSON.stringify(Array.from(wishlist)));
-  }, [wishlist]);
+  // --- HELPER FUNCTIONS ---
 
   const navigateTo = (newView: typeof view) => {
     setPreviousView(view);
     setView(newView);
+  };
+
+  const showSnackbar = (msg: string) => {
+    setSnackbarMessage(msg);
+    setTimeout(() => setSnackbarMessage(null), 4000);
   };
 
   const toggleFavorite = (id: string) => {
@@ -231,35 +278,9 @@ export default function App() {
     });
   };
 
-  const [setupStep, setSetupStep] = useState<'breakfast' | 'lunch' | 'dinner'>('breakfast');
-  const [setupSelectedPool, setSetupSelectedPool] = useState<{ id: string, category: string }[]>([]);
-  const [selectedRecipeForDetails, setSelectedRecipeForDetails] = useState<Recipe | null>(null);
-  const [selectedRecipeForModal, setSelectedRecipeForModal] = useState<Recipe | null>(null);
-  const [savedPlans, setSavedPlans] = useState<SavedPlan[]>(() => {
-    const saved = localStorage.getItem('savedPlans');
-    return saved ? JSON.parse(saved) : [];
-  });
-  const [isSavingPlanModalOpen, setIsSavingPlanModalOpen] = useState(false);
-  const [isDeletePlanModalOpen, setIsDeletePlanModalOpen] = useState(false);
-  const [hasShoppingListReady, setHasShoppingListReady] = useState(false);
-  const [hasConfirmedShoppingList, setHasConfirmedShoppingList] = useState(false);
-  const [showShoppingListBanner, setShowShoppingListBanner] = useState(false);
-  const [newPlanTitle, setNewPlanTitle] = useState('');
-  const [newPlanDescription, setNewPlanDescription] = useState('');
-  const [editingSavedPlan, setEditingSavedPlan] = useState<SavedPlan | null>(null);
-  const [checkedShoppingItems, setCheckedShoppingItems] = useState<Set<string>>(new Set());
-
-  useEffect(() => {
-    localStorage.setItem('savedPlans', JSON.stringify(savedPlans));
-  }, [savedPlans]);
-
   const handleSaveCurrentPlan = () => {
     if (editingSavedPlan) {
-      setSavedPlans(prev => prev.map(p => p.id === editingSavedPlan.id ? {
-        ...p,
-        title: newPlanTitle,
-        description: newPlanDescription
-      } : p));
+      setSavedPlans(prev => prev.map(p => p.id === editingSavedPlan.id ? { ...p, title: newPlanTitle, description: newPlanDescription } : p));
       setEditingSavedPlan(null);
     } else {
       const newPlan: SavedPlan = {
@@ -287,243 +308,117 @@ export default function App() {
     setSavedPlans(prev => prev.filter(p => p.id !== id));
   };
 
-  const [isReselectingPool, setIsReselectingPool] = useState(false);
-  const [hasReachedCalendarOnce, setHasReachedCalendarOnce] = useState(false);
-  const [isShowingCalendarCTA, setIsShowingCalendarCTA] = useState(true);
-  const [cookedMeals, setCookedMeals] = useState<Set<string>>(new Set());
+  // --- FIREBASE SYNC EFFECTS ---
 
-  const [weeklyPlan, setWeeklyPlan] = useState<WeeklyPlan>(() => {
-    const plan: WeeklyPlan = {};
-    DAYS.forEach(day => {
-      plan[day] = { Desayuno: null, Almuerzo: null, Cena: null };
-    });
-    return plan;
-  });
-  const [inventory, setInventory] = useState<InventoryState>(() => {
-    const saved = localStorage.getItem('inventoryState');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (!Array.isArray(parsed)) return parsed as InventoryState;
-      } catch (e) { }
-    }
-    return {};
-  });
-  const [snackbarMessage, setSnackbarMessage] = useState<string | null>(null);
-
+  // Save to Cloud on data changes
   useEffect(() => {
-    localStorage.setItem('inventoryState', JSON.stringify(inventory));
-  }, [inventory]);
+    if (user && isDataLoaded) {
+      setDoc(doc(db, 'users', user.uid), { 
+        inventory,
+        favorites: Array.from(favorites),
+        wishlist: Array.from(wishlist),
+        savedPlans,
+        weeklyPlan,
+        cookedMeals: Array.from(cookedMeals),
+        nickname
+      }, { merge: true });
+    }
+  }, [inventory, favorites, wishlist, savedPlans, weeklyPlan, cookedMeals, nickname, user, isDataLoaded]);
 
-  const showSnackbar = (msg: string) => {
-    setSnackbarMessage(msg);
-    setTimeout(() => setSnackbarMessage(null), 4000);
-  };
+  // Load from Cloud on Login
+  useEffect(() => {
+    if (user) {
+      const docRef = doc(db, 'users', user.uid);
+      const unsubscribe = onSnapshot(docRef, (docSnap) => {
+        const alreadyPrompted = localStorage.getItem('nickname_prompted');
+        
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          if (data.favorites) setFavorites(new Set(data.favorites));
+          if (data.wishlist) setWishlist(new Set(data.wishlist));
+          if (data.inventory) setInventory(data.inventory);
+          if (data.savedPlans) setSavedPlans(data.savedPlans);
+          if (data.weeklyPlan) setWeeklyPlan(data.weeklyPlan);
+          if (data.cookedMeals) setCookedMeals(new Set(data.cookedMeals));
+          
+          if (data.nickname) {
+            setNickname(data.nickname);
+            setShowNicknameModal(false);
+          } else if (!alreadyPrompted) {
+            setShowNicknameModal(true);
+            localStorage.setItem('nickname_prompted', 'true');
+          }
+        } else if (!alreadyPrompted) {
+          setShowNicknameModal(true);
+          localStorage.setItem('nickname_prompted', 'true');
+        }
+        setIsDataLoaded(true);
+      });
+      return () => unsubscribe();
+    } else {
+      setIsDataLoaded(false);
+      // Reset state for safety
+      setFavorites(new Set());
+      setWishlist(new Set());
+      setNickname('');
+      setInventory({});
+      setSavedPlans([]);
+      setWeeklyPlan(() => {
+        const plan: WeeklyPlan = {};
+        DAYS.forEach(day => { plan[day] = { Desayuno: null, Almuerzo: null, Cena: null }; });
+        return plan;
+      });
+      setCookedMeals(new Set());
+    }
+  }, [user]);
 
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedSection, setSelectedSection] = useState<'all' | 'Breakfast' | 'Lunch' | 'Dinner' | 'favorites' | 'wishlist'>('all');
-  const [selectedSlot, setSelectedSlot] = useState<{ day: DayOfWeek, time: MealTime } | null>(null);
-
-  const [selectedRecipeForPlacement, setSelectedRecipeForPlacement] = useState<Recipe | null>(null);
-  const [activeCategory, setActiveCategory] = useState<Recipe['category']>('Breakfast');
-
-  const [activeDay, setActiveDay] = useState<DayOfWeek>('Lunes');
+  // --- BUSINESS LOGIC HELPERS ---
 
   const handleSidebarRecipeClick = (recipe: Recipe) => {
-    const mealTimeMap: Record<string, MealTime> = {
-      'Breakfast': 'Desayuno',
-      'Lunch': 'Almuerzo',
-      'Dinner': 'Cena'
-    };
+    const mealTimeMap: Record<string, MealTime> = { 'Breakfast': 'Desayuno', 'Lunch': 'Almuerzo', 'Dinner': 'Cena' };
     const time = mealTimeMap[recipe.category];
     if (time) {
       setWeeklyPlan(prev => {
-        const newPlan = {
-          ...prev,
-          [activeDay]: {
-            ...prev[activeDay],
-            [time]: recipe.id
-          }
-        };
-
-        // Check if current activeDay is now complete
+        const newPlan = { ...prev, [activeDay]: { ...prev[activeDay], [time]: recipe.id } };
         const isDayComplete = Object.values(newPlan[activeDay]).every(v => v !== null);
-
         if (isDayComplete) {
           const currentIndex = DAYS.indexOf(activeDay);
           for (let i = 1; i < DAYS.length; i++) {
-            const nextIndex = (currentIndex + i) % DAYS.length;
-            const nextDay = DAYS[nextIndex];
-            const isNextDayComplete = Object.values(newPlan[nextDay]).every(v => v !== null);
-            if (!isNextDayComplete) {
-              // Use a small delay to ensure the state update for weeklyPlan is processed
+            const nextDay = DAYS[(currentIndex + i) % DAYS.length];
+            if (!Object.values(newPlan[nextDay]).every(v => v !== null)) {
               setTimeout(() => setActiveDay(nextDay), 0);
               break;
             }
           }
         }
-
         return newPlan;
       });
     }
   };
 
-  // Derived state
-  const hasPlan = useMemo(() =>
-    Object.values(weeklyPlan).some(day => Object.values(day).some(v => v !== null)),
-    [weeklyPlan]
-  );
-
-  const isPlanComplete = useMemo(() =>
-    DAYS.every(day => Object.values(weeklyPlan[day] || {}).every(v => v !== null)),
-    [weeklyPlan]
-  );
-
-  const nextMeal = useMemo(() => {
-    const today = getCurrentDay();
-    const todayIdx = DAYS.indexOf(today);
-
-    // Start from today and look forward
-    for (let i = 0; i < DAYS.length; i++) {
-      const dayIdx = (todayIdx + i) % DAYS.length;
-      const day = DAYS[dayIdx];
-
-      for (const time of MEALS) {
-        const recipeId = weeklyPlan[day]?.[time];
-        const isCooked = cookedMeals.has(`${day}-${time}`);
-
-        if (recipeId && !isCooked) {
-          return { day, time, recipe: RECIPES.find(r => r.id === recipeId) };
-        }
-      }
-    }
-    return null;
-  }, [weeklyPlan, cookedMeals]);
-
-  const filteredRecipes = useMemo(() => {
-    let base = RECIPES;
-
-    // Filter by setup step or selected slot first
-    if (view === 'setup') {
-      const catMap = { breakfast: 'Breakfast', lunch: 'Lunch', dinner: 'Dinner' };
-      base = base.filter(r => r.category === catMap[setupStep]);
-    } else if (selectedSlot) {
-      const catMap = { Desayuno: 'Breakfast', Almuerzo: 'Lunch', Cena: 'Dinner' };
-      base = base.filter(r => r.category === catMap[selectedSlot.time]);
-    }
-
-    // Filter by selected section (NEW LOGIC)
-    if (selectedSection === 'favorites') {
-      base = base.filter(r => favorites.has(r.id));
-    } else if (selectedSection === 'wishlist') {
-      base = base.filter(r => wishlist.has(r.id));
-    } else if (selectedSection !== 'all') {
-      base = base.filter(r => r.category === selectedSection);
-    }
-
-    // Then apply search query filter
-    return base.filter(recipe => {
-      const matchesSearch = recipe.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        recipe.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        recipe.ingredients.some(i => i.name.toLowerCase().includes(searchQuery.toLowerCase()));
-      return matchesSearch;
-    }).sort((a, b) => {
-      const aMatches = a.ingredients.filter(i => {
-        const inv = inventory[i.name.toLowerCase()];
-        return inv && inv.amount >= i.amount;
-      }).length / a.ingredients.length;
-      const bMatches = b.ingredients.filter(i => {
-        const inv = inventory[i.name.toLowerCase()];
-        return inv && inv.amount >= i.amount;
-      }).length / b.ingredients.length;
-      return bMatches - aMatches;
-    });
-  }, [searchQuery, inventory, view, setupStep, selectedSlot, favorites, wishlist, selectedSection]);
-
-  const totalCost = useMemo(() => {
-    let cost = 0;
-
-    const reqs: Record<string, { amount: number; costPerUnit: number }> = {};
-    Object.values(weeklyPlan).forEach(day => {
-      Object.values(day).forEach(recipeId => {
-        if (recipeId) {
-          const recipe = RECIPES.find(r => r.id === recipeId);
-          recipe?.ingredients.forEach(ing => {
-            const key = ing.name.toLowerCase();
-            if (!reqs[key]) reqs[key] = { amount: 0, costPerUnit: ing.estimatedCost / ing.amount };
-            reqs[key].amount += ing.amount;
-          });
-        }
-      });
-    });
-
-    Object.keys(reqs).forEach(key => {
-      const need = reqs[key].amount;
-      const have = inventory[key]?.amount || 0;
-      if (need > have) {
-        cost += (need - have) * reqs[key].costPerUnit;
-      }
-    });
-
-    return cost;
-  }, [weeklyPlan, inventory]);
-
-  const cookableNow = useMemo(() => {
-    return RECIPES.filter(recipe => {
-      let haveCount = 0;
-      recipe.ingredients.forEach(i => {
-        const inv = inventory[i.name.toLowerCase()];
-        if (inv && inv.amount >= i.amount) haveCount++;
-      });
-      return (haveCount / recipe.ingredients.length) >= 0.6;
-    }).sort((a, b) => {
-      let aHave = 0; a.ingredients.forEach(i => { if (inventory[i.name.toLowerCase()]?.amount >= i.amount) aHave++; });
-      let bHave = 0; b.ingredients.forEach(i => { if (inventory[i.name.toLowerCase()]?.amount >= i.amount) bHave++; });
-      return (bHave / b.ingredients.length) - (aHave / a.ingredients.length);
-    });
-  }, [inventory]);
-
   const handleSelectRecipe = (recipeId: string) => {
-    if (view === 'setup') {
-      const recipe = RECIPES.find(r => r.id === recipeId);
-      if (!recipe) return;
+    const recipe = RECIPES.find(r => r.id === recipeId);
+    if (!recipe) return;
 
+    if (view === 'setup') {
       setSetupSelectedPool(prev => {
         const exists = prev.find(item => item.id === recipeId);
         if (exists) return prev.filter(item => item.id !== recipeId);
-
-        // Limit to 5 items per category
-        const categoryCount = prev.filter(item => item.category === recipe.category).length;
-        if (categoryCount >= 5) {
-          // Optional: show a message or just ignore
-          return prev;
-        }
-
+        if (prev.filter(item => item.category === recipe.category).length >= 5) return prev;
         return [...prev, { id: recipeId, category: recipe.category }];
       });
-      return;
-    }
-
-    if (selectedSlot) {
+    } else if (selectedSlot) {
       setWeeklyPlan(prev => ({
-        ...prev,
-        [selectedSlot.day]: {
-          ...prev[selectedSlot.day],
-          [selectedSlot.time]: recipeId
-        }
+        ...prev, [selectedSlot.day]: { ...prev[selectedSlot.day], [selectedSlot.time]: recipeId }
       }));
       setSelectedSlot(null);
       setView('calendar');
     }
   };
 
-  const [cookingMessage, setCookingMessage] = useState<string | null>(null);
-  const [isCookingAnimating, setIsCookingAnimating] = useState(false);
-
   const handleCook = () => {
     if (nextMeal?.recipe) {
       const { day, time } = nextMeal;
-
       const depleted: string[] = [];
       setInventory(prev => {
         const next = { ...prev };
@@ -531,10 +426,7 @@ export default function App() {
           const key = ing.name.toLowerCase();
           if (next[key]) {
             next[key].amount -= ing.amount;
-            if (next[key].amount <= 0) {
-              next[key].amount = 0;
-              depleted.push(ing.name);
-            }
+            if (next[key].amount <= 0) { next[key].amount = 0; depleted.push(ing.name); }
           } else {
             depleted.push(ing.name);
           }
@@ -547,25 +439,125 @@ export default function App() {
         next.add(`${day}-${time}`);
         return next;
       });
-      setCookingMessage(`¡Buen provecho! Has cocinado ${nextMeal.recipe.name}.`);
 
-      if (depleted.length > 0) {
-        showSnackbar(`Se agotó el stock de: ${depleted.join(', ')}`);
-      }
+      setCookingMessage(`¡Buen provecho! Has cocinado ${nextMeal.recipe.name}.`);
+      if (depleted.length > 0) showSnackbar(`Se agotó el stock de: ${depleted.join(', ')}`);
       setTimeout(() => setCookingMessage(null), 3000);
     }
   };
 
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [isEditingPlan, setIsEditingPlan] = useState(false);
-  const [hasFinalizedInitialPlan, setHasFinalizedInitialPlan] = useState(false);
+  // --- DERIVED STATES ---
 
-  // Lock active day to today when plan is finalized and not editing
+  const hasPlan = useMemo(() => Object.values(weeklyPlan).some(day => Object.values(day).some(v => v !== null)), [weeklyPlan]);
+  
+  const isPlanComplete = useMemo(() => DAYS.every(day => Object.values(weeklyPlan[day] || {}).every(v => v !== null)), [weeklyPlan]);
+
+  const nextMeal = useMemo(() => {
+    const today = getCurrentDay();
+    const todayIdx = DAYS.indexOf(today);
+    for (let i = 0; i < DAYS.length; i++) {
+      const day = DAYS[(todayIdx + i) % DAYS.length];
+      for (const time of MEALS) {
+        const recipeId = weeklyPlan[day]?.[time];
+        if (recipeId && !cookedMeals.has(`${day}-${time}`)) {
+          return { day, time, recipe: RECIPES.find(r => r.id === recipeId) };
+        }
+      }
+    }
+    return null;
+  }, [weeklyPlan, cookedMeals]);
+
+  const filteredRecipes = useMemo(() => {
+    let base = RECIPES;
+    if (view === 'setup') {
+      const catMap = { breakfast: 'Breakfast', lunch: 'Lunch', dinner: 'Dinner' };
+      base = base.filter(r => r.category === catMap[setupStep]);
+    } else if (selectedSlot) {
+      const catMap = { Desayuno: 'Breakfast', Almuerzo: 'Lunch', Cena: 'Dinner' };
+      base = base.filter(r => r.category === catMap[selectedSlot.time]);
+    }
+    if (selectedSection === 'favorites') base = base.filter(r => favorites.has(r.id));
+    else if (selectedSection === 'wishlist') base = base.filter(r => wishlist.has(r.id));
+    else if (selectedSection !== 'all') base = base.filter(r => r.category === selectedSection);
+
+    return base.filter(recipe => {
+      const matchesSearch = recipe.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                           recipe.ingredients.some(i => i.name.toLowerCase().includes(searchQuery.toLowerCase()));
+      return matchesSearch;
+    }).sort((a, b) => {
+      const getScore = (r: Recipe) => r.ingredients.filter(i => (inventory[i.name.toLowerCase()]?.amount || 0) >= i.amount).length / r.ingredients.length;
+      return getScore(b) - getScore(a);
+    });
+  }, [searchQuery, inventory, view, setupStep, selectedSlot, favorites, wishlist, selectedSection]);
+
+  const totalCost = useMemo(() => {
+    let cost = 0;
+    const reqs: Record<string, number> = {};
+    Object.values(weeklyPlan).forEach(day => Object.values(day).forEach(id => {
+      RECIPES.find(r => r.id === id)?.ingredients.forEach(i => { reqs[i.name.toLowerCase()] = (reqs[i.name.toLowerCase()] || 0) + i.amount; });
+    }));
+    Object.keys(reqs).forEach(k => {
+      const diff = reqs[k] - (inventory[k]?.amount || 0);
+      if (diff > 0) {
+        const ing = RECIPES.flatMap(r => r.ingredients).find(i => i.name.toLowerCase() === k);
+        if (ing) cost += diff * (ing.estimatedCost / ing.amount);
+      }
+    });
+    return cost;
+  }, [weeklyPlan, inventory]);
+
+  const cookableNow = useMemo(() => {
+    return RECIPES.filter(r => r.ingredients.filter(i => (inventory[i.name.toLowerCase()]?.amount || 0) >= i.amount).length / r.ingredients.length >= 0.6)
+      .sort((a, b) => {
+        const getScore = (r: Recipe) => r.ingredients.filter(i => (inventory[i.name.toLowerCase()]?.amount || 0) >= i.amount).length / r.ingredients.length;
+        return getScore(b) - getScore(a);
+      });
+  }, [inventory]);
+
+  // Lock active day to today when conditions are met
   useEffect(() => {
     if (view === 'calendar' && isPlanComplete && hasFinalizedInitialPlan && !isEditingPlan) {
       setActiveDay(getCurrentDay());
     }
   }, [view, isPlanComplete, hasFinalizedInitialPlan, isEditingPlan]);
+
+  // --- AUTH GUARDS ---
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-white flex flex-col items-center justify-center space-y-4">
+        <motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: 'linear' }} className="w-12 h-12 border-4 border-orange-500 border-t-transparent rounded-full" />
+        <p className="text-sm font-black text-gray-400 uppercase tracking-widest animate-pulse">Cargando Kaneo...</p>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-[#F8F9FA] flex flex-col items-center justify-center p-6 text-center">
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="max-w-md w-full space-y-10">
+          <div className="space-y-6">
+            <div className="w-24 h-24 bg-white rounded-[32px] p-4 shadow-xl shadow-orange-500/10 border border-orange-50 mx-auto flex items-center justify-center">
+              <img src={kaneoLogo} alt="Kaneo" className="w-16 h-16 object-contain" />
+            </div>
+            <div className="space-y-2">
+              <h1 className="text-4xl font-black tracking-tight text-gray-900">Bienvenido a Kaneo</h1>
+              <p className="text-gray-500 font-medium px-4">Planes de comida inteligentes y sincronizados. Ahorra tiempo y cocina mejor.</p>
+            </div>
+          </div>
+          <button onClick={loginWithGoogle} className="w-full flex items-center justify-center gap-4 bg-white border-2 border-gray-100 py-5 rounded-[24px] font-black text-gray-700 shadow-xl shadow-black/5 hover:border-orange-200 transition-all active:scale-95 group">
+            <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" className="w-6 h-6" alt="Google" />
+            Continuar con Google
+          </button>
+          <div className="grid grid-cols-3 gap-4 pt-8 opacity-50">
+            <div className="space-y-2"><CalendarIcon className="w-5 h-5 mx-auto text-orange-500" /><p className="text-[8px] font-black uppercase tracking-widest">Planes</p></div>
+            <div className="space-y-2"><ShoppingCart className="w-5 h-5 mx-auto text-orange-500" /><p className="text-[8px] font-black uppercase tracking-widest">Compras</p></div>
+            <div className="space-y-2"><Package className="w-5 h-5 mx-auto text-orange-500" /><p className="text-[8px] font-black uppercase tracking-widest">Despensa</p></div>
+          </div>
+        </motion.div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#F8F9FA] text-[#1A1C1E] font-sans pb-24 lg:pb-0 lg:flex">
@@ -616,6 +608,40 @@ export default function App() {
             onClick={() => setView('saved-plans')}
           />
         </nav>
+
+        {/* User Profile / Auth Section */}
+        <div className="pt-6 border-t border-gray-100">
+          {user ? (
+            <div className="space-y-4">
+              <div className="flex items-center gap-3 px-2">
+                <img 
+                  src={user.photoURL || `https://ui-avatars.com/api/?name=${user.displayName}`} 
+                  className="w-10 h-10 rounded-xl object-cover border-2 border-orange-100" 
+                  alt="Profile"
+                />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-black tracking-tight truncate">{user.displayName}</p>
+                  <p className="text-[10px] text-gray-400 font-bold truncate">{user.email}</p>
+                </div>
+              </div>
+              <button
+                onClick={logout}
+                className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl font-black text-xs text-red-500 hover:bg-red-50 transition-all border border-transparent hover:border-red-100 group"
+              >
+                <LogOut className="w-4 h-4 transition-transform group-hover:-translate-x-1" />
+                <span>Cerrar Sesión</span>
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={loginWithGoogle}
+              className="w-full flex items-center gap-3 px-4 py-4 rounded-2xl font-black text-sm bg-orange-500 text-white shadow-xl shadow-orange-500/20 hover:bg-orange-600 transition-all active:scale-95 group"
+            >
+              <LogIn className="w-5 h-5 transition-transform group-hover:translate-x-1" />
+              <span>Entrar con Google</span>
+            </button>
+          )}
+        </div>
       </aside>
 
       <div className="flex-1 flex flex-col min-w-0">
@@ -769,8 +795,18 @@ export default function App() {
                     {/* Welcome Message */}
                     <div className="flex items-center justify-between">
                       <div className="space-y-0 sm:space-y-2">
-                        <h2 className="text-lg sm:text-3xl font-black tracking-tight">¡Hola, Arnold👋!</h2>
-                        <p className="text-gray-400 sm:text-gray-500 text-[8px] sm:text-sm sm:font-medium">¿Qué cocinamos hoy?</p>
+                        <h2 className="text-lg sm:text-3xl font-black tracking-tight flex items-center gap-3">
+                          ¡Hola, {nickname || user?.displayName?.split(' ')[0] || 'Invitado'}👋!
+                          <button 
+                            onClick={() => setShowNicknameModal(true)}
+                            className="p-1 hover:bg-gray-100 rounded-lg transition-colors group"
+                          >
+                            <Edit3 className="w-4 h-4 text-gray-300 group-hover:text-orange-500" />
+                          </button>
+                        </h2>
+                        <p className="text-gray-400 sm:text-gray-500 text-[8px] sm:text-sm sm:font-medium">
+                          {user ? 'Tu cocina sincronizada' : 'Accede para guardar tus recetas en la nube'}
+                        </p>
                       </div>
                       {nextMeal && (
                         <div className="bg-orange-50 px-3 py-1.5 rounded-xl border border-orange-100 flex items-center gap-2 sm:hidden">
@@ -2678,6 +2714,24 @@ export default function App() {
             </div>
             <span className="text-[8px] font-black uppercase tracking-widest">Lista</span>
           </button>
+          <button
+            onClick={() => {
+              if (user) logout();
+              else loginWithGoogle();
+            }}
+            className="flex flex-col items-center gap-0.5 transition-all duration-300 text-gray-400 hover:text-gray-600"
+          >
+            {user ? (
+              <img 
+                src={user.photoURL || `https://ui-avatars.com/api/?name=${user.displayName}`} 
+                className="w-5 h-5 rounded-full object-cover border border-orange-200" 
+                alt="Profile"
+              />
+            ) : (
+              <UserIcon className="w-5 h-5" />
+            )}
+            <span className="text-[8px] font-black uppercase tracking-widest">{user ? 'Salir' : 'Entrar'}</span>
+          </button>
         </nav>
 
         {/* Shopping List Ready Banner */}
@@ -3006,6 +3060,66 @@ export default function App() {
                       </button>
                     )}
                   </div>
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
+
+        {/* Nickname Modal */}
+        <AnimatePresence>
+          {showNicknameModal && (
+            <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 sm:p-6">
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+              />
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                className="relative w-full max-w-md bg-white rounded-[40px] overflow-hidden shadow-2xl p-10 text-center space-y-8"
+              >
+                <div className="space-y-4">
+                  <div className="w-20 h-20 bg-orange-50 rounded-full flex items-center justify-center mx-auto text-3xl shadow-inner border border-orange-100">
+                    👋
+                  </div>
+                  <div className="space-y-2">
+                    <h2 className="text-2xl font-black tracking-tight">¡Bienvenido a Kaneo!</h2>
+                    <p className="text-gray-500 font-medium">¿Cómo quieres que te llamemos?</p>
+                  </div>
+                </div>
+
+                <div className="space-y-6">
+                  <input
+                    type="text"
+                    placeholder="Tu apodo favorito..."
+                    value={nickname}
+                    onChange={(e) => setNickname(e.target.value)}
+                    className="w-full bg-gray-50 border border-gray-100 rounded-3xl py-5 px-8 text-lg text-center focus:outline-none focus:ring-4 focus:ring-orange-500/10 transition-all font-black placeholder:font-bold placeholder:text-gray-300"
+                    autoFocus
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && nickname.trim()) {
+                        setShowNicknameModal(false);
+                      }
+                    }}
+                  />
+
+                  <button
+                    onClick={() => setShowNicknameModal(false)}
+                    disabled={!nickname.trim()}
+                    className="w-full bg-orange-500 text-white py-5 rounded-3xl font-black text-sm shadow-xl shadow-orange-500/20 hover:bg-orange-600 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Empezar a cocinar
+                  </button>
+                  
+                  {user && (
+                    <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">
+                      O usaremos tu nombre de Google: {user.displayName?.split(' ')[0]}
+                    </p>
+                  )}
                 </div>
               </motion.div>
             </div>
