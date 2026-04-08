@@ -165,7 +165,7 @@ const SidebarRecipeItem: React.FC<{
   );
 };
 
-const SidebarNavItem: React.FC<{ icon: any, label: string, active: boolean, onClick: () => void }> = ({ icon: Icon, label, active, onClick }) => (
+const SidebarNavItem: React.FC<{ icon: any, label: string, active: boolean, hasBadge?: boolean, onClick: () => void }> = ({ icon: Icon, label, active, hasBadge, onClick }) => (
   <button
     onClick={onClick}
     className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl font-black text-sm transition-all duration-300 group ${active
@@ -173,7 +173,12 @@ const SidebarNavItem: React.FC<{ icon: any, label: string, active: boolean, onCl
       : 'text-gray-400 hover:bg-gray-50 hover:text-gray-900'
       }`}
   >
-    <Icon className={`w-5 h-5 transition-transform group-hover:scale-110 ${active ? 'text-white' : 'text-gray-400 group-hover:text-orange-500'}`} />
+    <div className="relative">
+      <Icon className={`w-5 h-5 transition-transform group-hover:scale-110 ${active ? 'text-white' : 'text-gray-400 group-hover:text-orange-500'}`} />
+      {hasBadge && (
+        <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white animate-pulse" />
+      )}
+    </div>
     <span className="tracking-tight">{label}</span>
   </button>
 );
@@ -221,6 +226,7 @@ export default function App() {
   const [isSavingPlanModalOpen, setIsSavingPlanModalOpen] = useState(false);
   const [isDeletePlanModalOpen, setIsDeletePlanModalOpen] = useState(false);
   const [hasShoppingListReady, setHasShoppingListReady] = useState(false);
+  const [hasNewSavedPlanBadge, setHasNewSavedPlanBadge] = useState(false);
   const [hasConfirmedShoppingList, setHasConfirmedShoppingList] = useState(false);
   const [showShoppingListBanner, setShowShoppingListBanner] = useState(false);
   const [newPlanTitle, setNewPlanTitle] = useState('');
@@ -283,6 +289,7 @@ export default function App() {
     if (editingSavedPlan) {
       setSavedPlans(prev => prev.map(p => p.id === editingSavedPlan.id ? { ...p, title: newPlanTitle, description: newPlanDescription } : p));
       setEditingSavedPlan(null);
+      showSnackbar('¡Plan actualizado exitosamente!');
     } else {
       const newPlan: SavedPlan = {
         id: Date.now().toString(),
@@ -292,6 +299,8 @@ export default function App() {
         createdAt: new Date().toISOString()
       };
       setSavedPlans(prev => [newPlan, ...prev]);
+      setHasNewSavedPlanBadge(true);
+      showSnackbar('¡Plan guardado exitosamente!');
     }
     setIsSavingPlanModalOpen(false);
     setNewPlanTitle('');
@@ -536,8 +545,13 @@ export default function App() {
 
   const isCurrentPlanSaved = useMemo(() => {
     if (!hasPlan) return false;
-    const currentStr = JSON.stringify(weeklyPlan);
-    return savedPlans.some(sp => JSON.stringify(sp.plan) === currentStr);
+    return savedPlans.some(sp => {
+      return DAYS.every(day => 
+        MEALS.every(meal => 
+          (sp.plan[day]?.[meal] || null) === (weeklyPlan[day]?.[meal] || null)
+        )
+      );
+    });
   }, [weeklyPlan, savedPlans, hasPlan]);
 
   // Lock active day to today when conditions are met
@@ -625,13 +639,21 @@ export default function App() {
             icon={ListTodo}
             label="Lista de Compras"
             active={view === 'shopping-list'}
-            onClick={() => setView('shopping-list')}
+            hasBadge={hasShoppingListReady}
+            onClick={() => {
+              setView('shopping-list');
+              setHasShoppingListReady(false);
+            }}
           />
           <SidebarNavItem
             icon={FolderOpen}
             label="Mis Planes"
             active={view === 'saved-plans'}
-            onClick={() => setView('saved-plans')}
+            hasBadge={hasNewSavedPlanBadge}
+            onClick={() => {
+              setView('saved-plans');
+              setHasNewSavedPlanBadge(false);
+            }}
           />
 
         </nav>
@@ -715,10 +737,16 @@ export default function App() {
           </div>
           <div className="flex items-center gap-2">
             <button
-              onClick={() => setView('saved-plans')}
-              className="p-2 text-gray-400 hover:text-orange-500 transition-colors"
+              onClick={() => {
+                setView('saved-plans');
+                setHasNewSavedPlanBadge(false);
+              }}
+              className="p-2 text-gray-400 hover:text-orange-500 transition-colors relative"
             >
               <FolderOpen className="w-5 h-5" />
+              {hasNewSavedPlanBadge && (
+                <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white animate-pulse" />
+              )}
             </button>
             <div className="flex items-center gap-2 bg-gray-50 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-full border border-gray-100">
               <Wallet className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gray-500" />
