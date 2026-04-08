@@ -194,6 +194,7 @@ export default function App() {
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
   const [wishlist, setWishlist] = useState<Set<string>>(new Set());
   const [nickname, setNickname] = useState<string>('');
+  const [tempNickname, setTempNickname] = useState<string>('');
   const [inventory, setInventory] = useState<InventoryState>({});
   const [weeklyPlan, setWeeklyPlan] = useState<WeeklyPlan>(() => {
     const plan: WeeklyPlan = {};
@@ -343,6 +344,7 @@ export default function App() {
 
           if (data.nickname) {
             setNickname(data.nickname);
+            setTempNickname(data.nickname);
             setShowNicknameModal(false);
           } else if (!alreadyPrompted) {
             setShowNicknameModal(true);
@@ -823,7 +825,10 @@ export default function App() {
                         <h2 className="text-lg sm:text-3xl font-black tracking-tight flex items-center gap-3">
                           ¡Hola, {nickname || user?.displayName?.split(' ')[0] || 'Invitado'}👋!
                           <button
-                            onClick={() => setShowNicknameModal(true)}
+                            onClick={() => {
+                              setTempNickname(nickname);
+                              setShowNicknameModal(true);
+                            }}
                             className="p-1 hover:bg-gray-100 rounded-lg transition-colors group"
                           >
                             <Edit3 className="w-4 h-4 text-gray-300 group-hover:text-orange-500" />
@@ -3119,6 +3124,12 @@ export default function App() {
                 exit={{ opacity: 0, scale: 0.9, y: 20 }}
                 className="relative w-full max-w-md bg-white rounded-[40px] overflow-hidden shadow-2xl p-10 text-center space-y-8"
               >
+                <button
+                  onClick={() => setShowNicknameModal(false)}
+                  className="absolute top-4 right-4 p-2 bg-white/80 backdrop-blur-md rounded-full text-gray-400 hover:text-orange-500 transition-colors shadow-sm hover:bg-orange-50 z-10"
+                >
+                  <X className="w-5 h-5" />
+                </button>
                 <div className="space-y-4">
                   <div className="w-20 h-20 bg-orange-50 rounded-full flex items-center justify-center mx-auto text-3xl shadow-inner border border-orange-100">
                     👋
@@ -3133,20 +3144,24 @@ export default function App() {
                   <input
                     type="text"
                     placeholder="Tu apodo favorito..."
-                    value={nickname}
-                    onChange={(e) => setNickname(e.target.value)}
+                    value={tempNickname}
+                    onChange={(e) => setTempNickname(e.target.value)}
                     className="w-full bg-gray-50 border border-gray-100 rounded-3xl py-5 px-8 text-lg text-center focus:outline-none focus:ring-4 focus:ring-orange-500/10 transition-all font-black placeholder:font-bold placeholder:text-gray-300"
                     autoFocus
                     onKeyDown={(e) => {
-                      if (e.key === 'Enter' && nickname.trim()) {
+                      if (e.key === 'Enter' && tempNickname.trim()) {
+                        setNickname(tempNickname.trim());
                         setShowNicknameModal(false);
                       }
                     }}
                   />
 
                   <button
-                    onClick={() => setShowNicknameModal(false)}
-                    disabled={!nickname.trim()}
+                    onClick={() => {
+                      setNickname(tempNickname.trim());
+                      setShowNicknameModal(false);
+                    }}
+                    disabled={!tempNickname.trim()}
                     className="w-full bg-orange-500 text-white py-5 rounded-3xl font-black text-sm shadow-xl shadow-orange-500/20 hover:bg-orange-600 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Empezar a cocinar
